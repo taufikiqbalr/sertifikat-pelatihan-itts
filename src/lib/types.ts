@@ -115,7 +115,7 @@ export const DEFAULT_TEMPLATE_CONFIG: TemplateConfig = {
       id: "certificate-number",
       template: "{{certificate_number}}",
       x: 50,
-      y: 27,
+      y: 29.2,
       width: 74,
       fontSize: 22,
       fontWeight: 800,
