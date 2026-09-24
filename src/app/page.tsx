@@ -134,7 +134,7 @@ export default function HomePage() {
             <a href="#validasi">Validasi</a>
           </nav>
 
-          <Link className={styles.adminButton} href="/login">
+          <Link className={styles.adminButton} href="/login" aria-label="Admin">
             <span>Admin</span>
             <ArrowIcon />
           </Link>
