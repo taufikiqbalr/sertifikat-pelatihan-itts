@@ -117,7 +117,7 @@ export const DEFAULT_TEMPLATE_CONFIG: TemplateConfig = {
       x: 50,
       y: 29.2,
       width: 74,
-      fontSize: 22,
+      fontSize: 24,
       fontWeight: 800,
       color: "#0b5e66",
       align: "center",
