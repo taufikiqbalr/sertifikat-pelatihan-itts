@@ -81,7 +81,10 @@ export default async function EventDetailPage({
             </div>
             <div>
               <span>Template</span>
-              <strong>{event.template_name || "Legacy"}</strong>
+              <strong>
+                {event.template_name || "Legacy"}
+                {event.template_current_version ? " · v" + event.template_current_version : ""}
+              </strong>
             </div>
           </div>
         </div>
@@ -196,6 +199,7 @@ export default async function EventDetailPage({
                       <th>Peserta</th>
                       <th>Nomor Sertifikat</th>
                       <th>Terbit</th>
+                      <th>Versi</th>
                       <th>Status</th>
                       <th>Aksi</th>
                     </tr>
@@ -211,6 +215,11 @@ export default async function EventDetailPage({
                           <code className="table-code">{cert.certificate_number}</code>
                         </td>
                         <td>{formatDateId(cert.issued_at)}</td>
+                        <td>
+                          <span className="badge badge-version">
+                            v{cert.template_version_number ?? "—"}
+                          </span>
+                        </td>
                         <td>
                           <span
                             className={

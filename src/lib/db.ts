@@ -5,7 +5,8 @@ import {
   type CertificateTemplateRecord,
   type EventRecord,
   type TemplateConfig,
-  type TemplateUsageRecord
+  type TemplateUsageRecord,
+  type TemplateVersionRecord
 } from "./types";
 
 let schemaReady: Promise<void> | null = null;
@@ -124,6 +125,66 @@ async function migrateLegacyTemplates(query: ReturnType<typeof db>) {
   }
 }
 
+async function migrateTemplateVersions(query: ReturnType<typeof db>) {
+  const templates = (await query.query(
+    "SELECT id, template_image_url, template_config, current_version_id, current_version " +
+      "FROM certificate_templates ORDER BY created_at ASC"
+  )) as Record<string, unknown>[];
+
+  for (const row of templates) {
+    const templateId = String(row.id);
+    const versions = (await query.query(
+      "SELECT id, version_number FROM certificate_template_versions " +
+        "WHERE template_id=$1 ORDER BY version_number DESC LIMIT 1",
+      [templateId]
+    )) as Record<string, unknown>[];
+
+    let currentVersionId = versions[0]?.id ? String(versions[0].id) : "";
+    let currentVersion = Number(versions[0]?.version_number ?? 0);
+
+    if (!currentVersionId) {
+      currentVersion = 1;
+      currentVersionId = templateId + "-v1";
+
+      await query.query(
+        "INSERT INTO certificate_template_versions " +
+          "(id, template_id, version_number, template_image_url, template_config, change_note) " +
+          "VALUES ($1,$2,1,$3,$4::jsonb,$5) " +
+          "ON CONFLICT (template_id, version_number) DO NOTHING",
+        [
+          currentVersionId,
+          templateId,
+          row.template_image_url ?? null,
+          JSON.stringify(row.template_config ?? DEFAULT_TEMPLATE_CONFIG),
+          "Versi awal hasil migrasi"
+        ]
+      );
+
+      const actual = (await query.query(
+        "SELECT id, version_number FROM certificate_template_versions " +
+          "WHERE template_id=$1 ORDER BY version_number DESC LIMIT 1",
+        [templateId]
+      )) as Record<string, unknown>[];
+
+      currentVersionId = String(actual[0]?.id ?? currentVersionId);
+      currentVersion = Number(actual[0]?.version_number ?? 1);
+    }
+
+    await query.query(
+      "UPDATE certificate_templates SET current_version_id=$1, current_version=$2 " +
+        "WHERE id=$3 AND (current_version_id IS NULL OR current_version_id='')",
+      [currentVersionId, currentVersion, templateId]
+    );
+  }
+
+  await query.query(
+    "UPDATE certificates c SET " +
+      "template_version_id=t.current_version_id, template_version_number=t.current_version " +
+      "FROM events e JOIN certificate_templates t ON t.id=e.template_id " +
+      "WHERE c.event_id=e.id AND c.template_version_id IS NULL"
+  );
+}
+
 export async function ensureSchema() {
   if (!schemaReady) {
     schemaReady = (async () => {
@@ -178,6 +239,31 @@ export async function ensureSchema() {
       );
 
       await query.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS template_id TEXT");
+      await query.query(
+        "ALTER TABLE certificate_templates ADD COLUMN IF NOT EXISTS current_version_id TEXT"
+      );
+      await query.query(
+        "ALTER TABLE certificate_templates ADD COLUMN IF NOT EXISTS current_version INTEGER NOT NULL DEFAULT 1"
+      );
+      await query.query(
+        "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS template_version_id TEXT"
+      );
+      await query.query(
+        "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS template_version_number INTEGER"
+      );
+
+      await query.query(
+        "CREATE TABLE IF NOT EXISTS certificate_template_versions (" +
+          "id TEXT PRIMARY KEY, " +
+          "template_id TEXT NOT NULL REFERENCES certificate_templates(id) ON DELETE CASCADE, " +
+          "version_number INTEGER NOT NULL, " +
+          "template_image_url TEXT, " +
+          "template_config JSONB NOT NULL, " +
+          "change_note TEXT, " +
+          "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), " +
+          "UNIQUE(template_id, version_number)" +
+        ")"
+      );
 
       await query.query(
         "CREATE INDEX IF NOT EXISTS idx_certificates_event_id ON certificates(event_id)"
@@ -186,14 +272,21 @@ export async function ensureSchema() {
         "CREATE INDEX IF NOT EXISTS idx_certificates_public_id ON certificates(public_id)"
       );
       await query.query(
+        "CREATE INDEX IF NOT EXISTS idx_certificates_template_version_id ON certificates(template_version_id)"
+      );
+      await query.query(
         "CREATE INDEX IF NOT EXISTS idx_events_template_id ON events(template_id)"
       );
       await query.query(
         "CREATE INDEX IF NOT EXISTS idx_certificate_templates_status ON certificate_templates(status)"
       );
+      await query.query(
+        "CREATE INDEX IF NOT EXISTS idx_template_versions_template_id ON certificate_template_versions(template_id)"
+      );
 
       await seedDefaultTemplate(query);
       await migrateLegacyTemplates(query);
+      await migrateTemplateVersions(query);
     })();
   }
 
@@ -221,6 +314,10 @@ function normalizeEvent(row: Record<string, unknown>): EventRecord {
     ...(row as unknown as EventRecord),
     template_id: row.template_id ? String(row.template_id) : null,
     template_name: row.template_name ? String(row.template_name) : null,
+    template_current_version:
+      row.template_current_version === undefined || row.template_current_version === null
+        ? null
+        : Number(row.template_current_version),
     event_date: normalizeDateOnly(row.event_date),
     template_config: (row.template_config ?? DEFAULT_TEMPLATE_CONFIG) as TemplateConfig
   };
@@ -230,14 +327,26 @@ function normalizeTemplate(row: Record<string, unknown>): CertificateTemplateRec
   return {
     ...(row as unknown as CertificateTemplateRecord),
     is_default: Boolean(row.is_default),
+    current_version_id: row.current_version_id ? String(row.current_version_id) : null,
+    current_version: Number(row.current_version ?? 1),
     usage_count:
       row.usage_count === undefined ? undefined : Number(row.usage_count ?? 0),
     template_config: (row.template_config ?? DEFAULT_TEMPLATE_CONFIG) as TemplateConfig
   };
 }
 
+function normalizeTemplateVersion(row: Record<string, unknown>): TemplateVersionRecord {
+  return {
+    ...(row as unknown as TemplateVersionRecord),
+    version_number: Number(row.version_number ?? 1),
+    certificate_count:
+      row.certificate_count === undefined ? undefined : Number(row.certificate_count ?? 0),
+    template_config: (row.template_config ?? DEFAULT_TEMPLATE_CONFIG) as TemplateConfig
+  };
+}
+
 const EVENT_SELECT =
-  "SELECT e.*, t.name AS template_name, " +
+  "SELECT e.*, t.name AS template_name, t.current_version AS template_current_version, " +
   "COALESCE(t.template_image_url, e.template_image_url) AS resolved_template_image_url, " +
   "COALESCE(t.template_config, e.template_config) AS resolved_template_config " +
   "FROM events e LEFT JOIN certificate_templates t ON t.id=e.template_id ";
@@ -264,12 +373,12 @@ export async function listEvents() {
 export async function listEventsWithStats() {
   await ensureSchema();
   const rows = await db().query(
-    "SELECT e.*, t.name AS template_name, " +
+    "SELECT e.*, t.name AS template_name, t.current_version AS template_current_version, " +
       "COALESCE(t.template_image_url, e.template_image_url) AS resolved_template_image_url, " +
       "COALESCE(t.template_config, e.template_config) AS resolved_template_config, " +
       "COUNT(c.id)::int AS certificate_count, " +
-      "COUNT(c.id) FILTER (WHERE c.status = 'valid')::int AS valid_count, " +
-      "COUNT(c.id) FILTER (WHERE c.status = 'revoked')::int AS revoked_count " +
+      "COUNT(c.id) FILTER (WHERE c.status='valid')::int AS valid_count, " +
+      "COUNT(c.id) FILTER (WHERE c.status='revoked')::int AS revoked_count " +
       "FROM events e " +
       "LEFT JOIN certificate_templates t ON t.id=e.template_id " +
       "LEFT JOIN certificates c ON c.event_id=e.id " +
@@ -335,6 +444,49 @@ export async function getDefaultCertificateTemplate() {
   return rows[0] ? normalizeTemplate(rows[0] as Record<string, unknown>) : null;
 }
 
+export async function listTemplateVersions(templateId: string) {
+  await ensureSchema();
+  const rows = await db().query(
+    "SELECT v.*, COUNT(c.id)::int AS certificate_count " +
+      "FROM certificate_template_versions v " +
+      "LEFT JOIN certificates c ON c.template_version_id=v.id " +
+      "WHERE v.template_id=$1 GROUP BY v.id " +
+      "ORDER BY v.version_number DESC",
+    [templateId]
+  );
+  return rows.map((row) =>
+    normalizeTemplateVersion(row as Record<string, unknown>)
+  );
+}
+
+export async function getTemplateVersion(id: string) {
+  await ensureSchema();
+  const rows = await db().query(
+    "SELECT * FROM certificate_template_versions WHERE id=$1 LIMIT 1",
+    [id]
+  );
+  return rows[0]
+    ? normalizeTemplateVersion(rows[0] as Record<string, unknown>)
+    : null;
+}
+
+export async function getCertificateRenderTemplate(certificateId: string) {
+  await ensureSchema();
+  const rows = await db().query(
+    "SELECT v.* FROM certificates c " +
+      "JOIN events e ON e.id=c.event_id " +
+      "JOIN certificate_templates t ON t.id=e.template_id " +
+      "JOIN certificate_template_versions v " +
+        "ON v.id=COALESCE(c.template_version_id,t.current_version_id) " +
+      "WHERE c.id=$1 LIMIT 1",
+    [certificateId]
+  );
+
+  return rows[0]
+    ? normalizeTemplateVersion(rows[0] as Record<string, unknown>)
+    : null;
+}
+
 export async function listTemplateUsage(templateId: string): Promise<TemplateUsageRecord[]> {
   await ensureSchema();
   const rows = await db().query(
@@ -356,16 +508,39 @@ export async function listTemplateUsage(templateId: string): Promise<TemplateUsa
 
 export async function listCertificates(eventId: string) {
   await ensureSchema();
-  return (await db().query(
+  const rows = await db().query(
     "SELECT * FROM certificates WHERE event_id=$1 ORDER BY issued_at DESC",
     [eventId]
-  )) as CertificateRecord[];
+  );
+
+  return rows.map((row) => ({
+    ...(row as unknown as CertificateRecord),
+    template_version_id: row.template_version_id
+      ? String(row.template_version_id)
+      : null,
+    template_version_number:
+      row.template_version_number === null || row.template_version_number === undefined
+        ? null
+        : Number(row.template_version_number)
+  }));
 }
 
 export async function getCertificate(id: string) {
   await ensureSchema();
   const rows = await db().query("SELECT * FROM certificates WHERE id=$1 LIMIT 1", [id]);
-  return (rows[0] as CertificateRecord | undefined) ?? null;
+  if (!rows[0]) return null;
+
+  return {
+    ...(rows[0] as unknown as CertificateRecord),
+    template_version_id: rows[0].template_version_id
+      ? String(rows[0].template_version_id)
+      : null,
+    template_version_number:
+      rows[0].template_version_number === null ||
+      rows[0].template_version_number === undefined
+        ? null
+        : Number(rows[0].template_version_number)
+  };
 }
 
 export async function getCertificateByPublicId(publicId: string) {
@@ -374,7 +549,19 @@ export async function getCertificateByPublicId(publicId: string) {
     "SELECT * FROM certificates WHERE public_id=$1 LIMIT 1",
     [publicId]
   );
-  return (rows[0] as CertificateRecord | undefined) ?? null;
+  if (!rows[0]) return null;
+
+  return {
+    ...(rows[0] as unknown as CertificateRecord),
+    template_version_id: rows[0].template_version_id
+      ? String(rows[0].template_version_id)
+      : null,
+    template_version_number:
+      rows[0].template_version_number === null ||
+      rows[0].template_version_number === undefined
+        ? null
+        : Number(rows[0].template_version_number)
+  };
 }
 
 export async function getDashboardStats() {

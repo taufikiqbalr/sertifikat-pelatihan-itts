@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { getCertificateTemplate, listTemplateUsage } from "@/lib/db";
+import {
+  getCertificateTemplate,
+  listTemplateUsage,
+  listTemplateVersions
+} from "@/lib/db";
 import { formatDateId } from "@/lib/types";
 import AdminHeader from "../../admin-header";
 import TemplateEditor from "../../template-editor";
+import TemplatePreview from "../../template-preview";
 import {
   duplicateTemplateAction,
+  restoreTemplateVersionAction,
   setDefaultTemplateAction,
   toggleTemplateStatusAction
 } from "../../actions";
@@ -24,15 +30,18 @@ export default async function TemplateDetailPage({
     duplicated?: string;
     default?: string;
     status?: string;
+    restored?: string;
+    version?: string;
   }>;
 }) {
   await requireAdmin();
   const { id } = await params;
   const query = await searchParams;
 
-  const [template, usage] = await Promise.all([
+  const [template, usage, versions] = await Promise.all([
     getCertificateTemplate(id),
-    listTemplateUsage(id)
+    listTemplateUsage(id),
+    listTemplateVersions(id)
   ]);
   if (!template) notFound();
 
@@ -45,6 +54,7 @@ export default async function TemplateDetailPage({
             <div className="breadcrumb">Template Sertifikat / Detail</div>
             <div className="event-title-line">
               <h1 className="page-title">{template.name}</h1>
+              <span className="badge badge-version">v{template.current_version}</span>
               {template.is_default ? (
                 <span className="badge badge-default">Default</span>
               ) : null}
@@ -96,13 +106,22 @@ export default async function TemplateDetailPage({
 
         {query.created ? (
           <div className="alert alert-success" style={{ marginBottom: 18 }}>
-            Template berhasil dibuat dan sudah masuk ke Template Library.
+            Template berhasil dibuat sebagai <strong>versi 1</strong> dan sudah masuk ke
+            Template Library.
           </div>
         ) : null}
         {query.saved ? (
           <div className="alert alert-success" style={{ marginBottom: 18 }}>
-            Perubahan template berhasil disimpan. Kegiatan yang memakai template ini akan
-            menggunakan versi terbaru.
+            Versi baru template berhasil diterbitkan
+            {query.version ? <> sebagai <strong>v{query.version}</strong></> : null}.
+            Sertifikat yang sudah terbit tetap menggunakan versi lamanya.
+          </div>
+        ) : null}
+        {query.restored ? (
+          <div className="alert alert-success" style={{ marginBottom: 18 }}>
+            Versi {query.restored} berhasil dipulihkan sebagai versi baru
+            {query.version ? <> <strong>v{query.version}</strong></> : null}. Histori lama
+            tidak diubah.
           </div>
         ) : null}
         {query.duplicated ? (
@@ -117,6 +136,75 @@ export default async function TemplateDetailPage({
         ) : null}
 
         <TemplateEditor template={template} />
+
+        <section className="workspace-section" id="versions">
+          <div className="section-heading-row">
+            <div>
+              <span className="section-kicker">Version History</span>
+              <h2>Riwayat versi template</h2>
+              <p>
+                Setiap versi bersifat immutable. Sertifikat menyimpan versi template saat
+                diterbitkan sehingga perubahan desain tidak mengubah dokumen lama.
+              </p>
+            </div>
+            <span className="section-count">{versions.length} versi</span>
+          </div>
+
+          <div className="version-history-list">
+            {versions.map((version) => {
+              const current = version.id === template.current_version_id;
+              return (
+                <article className={"version-card " + (current ? "current" : "")} key={version.id}>
+                  <div className="version-preview-wrap">
+                    <TemplatePreview
+                      config={version.template_config}
+                      imageUrl={version.template_image_url}
+                    />
+                  </div>
+
+                  <div className="version-card-body">
+                    <div className="version-card-title">
+                      <div>
+                        <div className="template-badges">
+                          <span className="badge badge-version">v{version.version_number}</span>
+                          {current ? (
+                            <span className="badge badge-valid">Versi aktif</span>
+                          ) : null}
+                        </div>
+                        <h3>{version.change_note || "Perubahan template"}</h3>
+                      </div>
+                      <span className="usage-pill">
+                        {version.certificate_count ?? 0} sertifikat
+                      </span>
+                    </div>
+
+                    <div className="version-meta-row">
+                      <span>Dibuat {formatDateId(version.created_at)}</span>
+                      <span>
+                        {version.template_image_url ? "Background custom" : "Background ITTS"}
+                      </span>
+                      <span>{version.template_config.fields.length} elemen teks</span>
+                    </div>
+
+                    {!current ? (
+                      <form action={restoreTemplateVersionAction}>
+                        <input type="hidden" name="template_id" value={template.id} />
+                        <input type="hidden" name="version_id" value={version.id} />
+                        <button className="btn btn-secondary btn-small" type="submit">
+                          Pulihkan sebagai versi baru
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="version-lock-note">
+                        Versi aktif untuk penerbitan sertifikat berikutnya.
+                      </div>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
 
         <section className="workspace-section" id="usage">
           <div className="section-heading-row">

@@ -50,7 +50,8 @@ export default function TemplateEditor({
     name: template?.name ?? "",
     description: template?.description ?? "",
     status: template?.status ?? ("active" as CertificateTemplateRecord["status"]),
-    isDefault: template?.is_default ?? false
+    isDefault: template?.is_default ?? false,
+    versionNote: ""
   });
 
   const selectedField = useMemo(
@@ -145,9 +146,18 @@ export default function TemplateEditor({
           <span className="section-kicker">Template master</span>
           <strong>{template ? "Edit template" : "Template baru"}</strong>
         </div>
-        <button className="btn btn-primary" type="submit">
-          {template ? "Simpan template" : "Buat template"}
-        </button>
+        <div className="version-save-actions">
+          {template ? (
+            <span className="version-current-chip">
+              v{template.current_version} aktif · simpan menjadi v{template.current_version + 1}
+            </span>
+          ) : (
+            <span className="version-current-chip">akan dibuat sebagai v1</span>
+          )}
+          <button className="btn btn-primary" type="submit">
+            {template ? "Simpan versi baru" : "Buat template"}
+          </button>
+        </div>
       </div>
 
       <div className="template-editor-layout">
@@ -211,6 +221,27 @@ export default function TemplateEditor({
                 {meta.isDefault ? (
                   <span className="help">Template default harus tetap aktif.</span>
                 ) : null}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="version_note">Catatan versi</label>
+                <input
+                  className="input"
+                  id="version_note"
+                  name="version_note"
+                  value={meta.versionNote}
+                  onChange={(e) =>
+                    setMeta((current) => ({ ...current, versionNote: e.target.value }))
+                  }
+                  placeholder={
+                    template
+                      ? "Contoh: Perbaikan posisi QR dan ukuran nama peserta"
+                      : "Contoh: Versi awal untuk sertifikat pelatihan"
+                  }
+                />
+                <span className="help">
+                  Setiap simpan menghasilkan versi immutable baru untuk kebutuhan audit.
+                </span>
               </div>
 
               <label className="default-switch">

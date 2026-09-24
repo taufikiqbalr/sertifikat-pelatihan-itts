@@ -7,6 +7,7 @@ import { clearAdminSession, requireAdmin } from "@/lib/auth";
 import {
   getCertificateTemplate,
   getEvent,
+  getTemplateVersion,
   runQuery
 } from "@/lib/db";
 import {
@@ -53,6 +54,47 @@ async function resolveTemplate(templateId: string) {
   }
 
   return template;
+}
+
+async function nextTemplateVersion(templateId: string) {
+  const rows = await runQuery(
+    "SELECT COALESCE(MAX(version_number),0)::int + 1 AS next_version " +
+      "FROM certificate_template_versions WHERE template_id=$1",
+    [templateId]
+  );
+  return Number(rows[0]?.next_version ?? 1);
+}
+
+async function createTemplateVersion({
+  templateId,
+  versionNumber,
+  imageUrl,
+  config,
+  note
+}: {
+  templateId: string;
+  versionNumber: number;
+  imageUrl: string | null;
+  config: TemplateConfig;
+  note: string;
+}) {
+  const versionId = crypto.randomUUID();
+
+  await runQuery(
+    "INSERT INTO certificate_template_versions " +
+      "(id, template_id, version_number, template_image_url, template_config, change_note) " +
+      "VALUES ($1,$2,$3,$4,$5::jsonb,$6)",
+    [
+      versionId,
+      templateId,
+      versionNumber,
+      imageUrl,
+      JSON.stringify(config),
+      note || "Perubahan template"
+    ]
+  );
+
+  return versionId;
 }
 
 export async function logoutAction() {
@@ -149,6 +191,9 @@ export async function saveTemplateAction(formData: FormData) {
   const config = parseConfig(text(formData, "template_config"));
   const status = text(formData, "status") === "archived" ? "archived" : "active";
   const isDefault = text(formData, "is_default") === "true";
+  const versionNote =
+    text(formData, "version_note") ||
+    (existingId ? "Pembaruan desain template" : "Versi awal template");
 
   if (!name) throw new Error("Nama template wajib diisi.");
 
@@ -157,10 +202,20 @@ export async function saveTemplateAction(formData: FormData) {
   }
 
   if (existingId) {
+    const versionNumber = await nextTemplateVersion(id);
+    const versionId = await createTemplateVersion({
+      templateId: id,
+      versionNumber,
+      imageUrl: imageUrl || null,
+      config,
+      note: versionNote
+    });
+
     await runQuery(
       "UPDATE certificate_templates SET " +
         "name=$1, description=$2, template_image_url=$3, template_config=$4::jsonb, " +
-        "is_default=$5, status=$6, updated_at=NOW() WHERE id=$7",
+        "is_default=$5, status=$6, current_version_id=$7, current_version=$8, updated_at=NOW() " +
+        "WHERE id=$9",
       [
         name,
         description || null,
@@ -168,41 +223,54 @@ export async function saveTemplateAction(formData: FormData) {
         JSON.stringify(config),
         isDefault,
         isDefault ? "active" : status,
+        versionId,
+        versionNumber,
         id
       ]
     );
-  } else {
+
     await runQuery(
-      "INSERT INTO certificate_templates " +
-        "(id, name, description, template_image_url, template_config, is_default, status) " +
-        "VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)",
-      [
-        id,
-        name,
-        description || null,
-        imageUrl || null,
-        JSON.stringify(config),
-        isDefault,
-        isDefault ? "active" : status
-      ]
+      "UPDATE events SET template_image_url=$1, template_config=$2::jsonb, updated_at=NOW() " +
+        "WHERE template_id=$3",
+      [imageUrl || null, JSON.stringify(config), id]
     );
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/templates");
+    revalidatePath("/admin/templates/" + id);
+    redirect("/admin/templates/" + id + "?saved=1&version=" + versionNumber);
   }
 
-  // Keep fallback snapshots in events synchronized. Reads resolve live from template,
-  // but these fields preserve compatibility if a template reference is unavailable.
   await runQuery(
-    "UPDATE events SET template_image_url=$1, template_config=$2::jsonb, updated_at=NOW() " +
-      "WHERE template_id=$3",
-    [imageUrl || null, JSON.stringify(config), id]
+    "INSERT INTO certificate_templates " +
+      "(id, name, description, template_image_url, template_config, is_default, status, current_version) " +
+      "VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,1)",
+    [
+      id,
+      name,
+      description || null,
+      imageUrl || null,
+      JSON.stringify(config),
+      isDefault,
+      isDefault ? "active" : status
+    ]
+  );
+
+  const versionId = await createTemplateVersion({
+    templateId: id,
+    versionNumber: 1,
+    imageUrl: imageUrl || null,
+    config,
+    note: versionNote
+  });
+
+  await runQuery(
+    "UPDATE certificate_templates SET current_version_id=$1, current_version=1 WHERE id=$2",
+    [versionId, id]
   );
 
   revalidatePath("/admin");
   revalidatePath("/admin/templates");
-  revalidatePath("/admin/templates/" + id);
-
-  if (existingId) {
-    redirect("/admin/templates/" + id + "?saved=1");
-  }
   redirect("/admin/templates/" + id + "?created=1");
 }
 
@@ -216,8 +284,8 @@ export async function duplicateTemplateAction(formData: FormData) {
   const id = crypto.randomUUID();
   await runQuery(
     "INSERT INTO certificate_templates " +
-      "(id, name, description, template_image_url, template_config, is_default, status) " +
-      "VALUES ($1,$2,$3,$4,$5::jsonb,FALSE,'active')",
+      "(id, name, description, template_image_url, template_config, is_default, status, current_version) " +
+      "VALUES ($1,$2,$3,$4,$5::jsonb,FALSE,'active',1)",
     [
       id,
       source.name + " (Salinan)",
@@ -227,8 +295,79 @@ export async function duplicateTemplateAction(formData: FormData) {
     ]
   );
 
+  const versionId = await createTemplateVersion({
+    templateId: id,
+    versionNumber: 1,
+    imageUrl: source.template_image_url,
+    config: source.template_config,
+    note: "Versi awal hasil duplikasi dari " + source.name
+  });
+
+  await runQuery(
+    "UPDATE certificate_templates SET current_version_id=$1 WHERE id=$2",
+    [versionId, id]
+  );
+
   revalidatePath("/admin/templates");
   redirect("/admin/templates/" + id + "?duplicated=1");
+}
+
+export async function restoreTemplateVersionAction(formData: FormData) {
+  await requireAdmin();
+
+  const templateId = text(formData, "template_id");
+  const versionId = text(formData, "version_id");
+  const [template, sourceVersion] = await Promise.all([
+    getCertificateTemplate(templateId),
+    getTemplateVersion(versionId)
+  ]);
+
+  if (!template || !sourceVersion || sourceVersion.template_id !== templateId) {
+    throw new Error("Versi template tidak ditemukan.");
+  }
+
+  const versionNumber = await nextTemplateVersion(templateId);
+  const restoredVersionId = await createTemplateVersion({
+    templateId,
+    versionNumber,
+    imageUrl: sourceVersion.template_image_url,
+    config: sourceVersion.template_config,
+    note: "Dipulihkan dari versi " + sourceVersion.version_number
+  });
+
+  await runQuery(
+    "UPDATE certificate_templates SET template_image_url=$1, template_config=$2::jsonb, " +
+      "current_version_id=$3, current_version=$4, updated_at=NOW() WHERE id=$5",
+    [
+      sourceVersion.template_image_url,
+      JSON.stringify(sourceVersion.template_config),
+      restoredVersionId,
+      versionNumber,
+      templateId
+    ]
+  );
+
+  await runQuery(
+    "UPDATE events SET template_image_url=$1, template_config=$2::jsonb, updated_at=NOW() " +
+      "WHERE template_id=$3",
+    [
+      sourceVersion.template_image_url,
+      JSON.stringify(sourceVersion.template_config),
+      templateId
+    ]
+  );
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/templates");
+  revalidatePath("/admin/templates/" + templateId);
+  redirect(
+    "/admin/templates/" +
+      templateId +
+      "?restored=" +
+      sourceVersion.version_number +
+      "&version=" +
+      versionNumber
+  );
 }
 
 export async function setDefaultTemplateAction(formData: FormData) {
@@ -257,7 +396,9 @@ export async function toggleTemplateStatusAction(formData: FormData) {
   const template = await getCertificateTemplate(id);
   if (!template) throw new Error("Template tidak ditemukan.");
   if (template.is_default && template.status === "active") {
-    throw new Error("Template default tidak dapat diarsipkan. Tetapkan template lain sebagai default terlebih dahulu.");
+    throw new Error(
+      "Template default tidak dapat diarsipkan. Tetapkan template lain sebagai default terlebih dahulu."
+    );
   }
 
   const nextStatus = template.status === "active" ? "archived" : "active";
@@ -294,6 +435,16 @@ export async function issueCertificatesAction(formData: FormData) {
   const event = await getEvent(eventId);
   if (!event) throw new Error("Kegiatan tidak ditemukan.");
 
+  const template = event.template_id
+    ? await getCertificateTemplate(event.template_id)
+    : null;
+
+  if (!template?.current_version_id) {
+    throw new Error(
+      "Template kegiatan belum memiliki versi aktif. Simpan template terlebih dahulu."
+    );
+  }
+
   const participants = parseParticipants(raw);
   if (!participants.length) throw new Error("Masukkan minimal satu peserta.");
 
@@ -316,8 +467,9 @@ export async function issueCertificatesAction(formData: FormData) {
 
     await runQuery(
       "INSERT INTO certificates " +
-        "(id, public_id, event_id, participant_name, participant_email, certificate_number, custom_data) " +
-        "VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)",
+        "(id, public_id, event_id, participant_name, participant_email, certificate_number, " +
+        "custom_data, template_version_id, template_version_number) " +
+        "VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9)",
       [
         id,
         publicId,
@@ -325,13 +477,16 @@ export async function issueCertificatesAction(formData: FormData) {
         participant.name,
         participant.email || null,
         number,
-        "{}"
+        "{}",
+        template.current_version_id,
+        template.current_version
       ]
     );
   }
 
   revalidatePath("/admin");
   revalidatePath("/admin/events/" + eventId);
+  revalidatePath("/admin/templates/" + event.template_id);
 }
 
 export async function revokeCertificateAction(formData: FormData) {

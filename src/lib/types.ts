@@ -32,9 +32,22 @@ export type CertificateTemplateRecord = {
   template_config: TemplateConfig;
   is_default: boolean;
   status: "active" | "archived";
+  current_version_id: string | null;
+  current_version: number;
   usage_count?: number;
   created_at: string;
   updated_at: string;
+};
+
+export type TemplateVersionRecord = {
+  id: string;
+  template_id: string;
+  version_number: number;
+  template_image_url: string | null;
+  template_config: TemplateConfig;
+  change_note: string | null;
+  certificate_count?: number;
+  created_at: string;
 };
 
 export type EventRecord = {
@@ -48,6 +61,7 @@ export type EventRecord = {
   certificate_prefix: string;
   template_id: string | null;
   template_name?: string | null;
+  template_current_version?: number | null;
   template_image_url: string | null;
   template_config: TemplateConfig;
   status: "draft" | "active" | "archived";
@@ -63,6 +77,8 @@ export type CertificateRecord = {
   participant_email: string | null;
   certificate_number: string;
   custom_data: Record<string, string>;
+  template_version_id: string | null;
+  template_version_number: number | null;
   status: "valid" | "revoked";
   issued_at: string;
   revoked_at: string | null;

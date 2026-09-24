@@ -49,6 +49,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ publicI
           <div className="detail-item"><span>Tanggal Kegiatan</span><strong>{formatDateId(event.event_date)}</strong></div>
           <div className="detail-item"><span>Penyelenggara</span><strong>{event.organizer}</strong></div>
           <div className="detail-item"><span>Tanggal Terbit</span><strong>{formatDateId(certificate.issued_at)}</strong></div>
+          <div className="detail-item"><span>Versi Template</span><strong>v{certificate.template_version_number ?? "—"}</strong></div>
           <div className="detail-item"><span>ID Validasi</span><strong>{certificate.public_id.slice(0, 16).toUpperCase()}</strong></div>
         </div>
 

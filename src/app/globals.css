@@ -1329,3 +1329,114 @@ tr:last-child td { border-bottom:0; }
     align-items:flex-start;
   }
 }
+
+
+/* ===== Immutable template versioning ===== */
+.badge-version {
+  color:#164e63;
+  background:#ecfeff;
+  border:1px solid #a5f3fc;
+}
+.version-save-actions {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.version-current-chip {
+  display:inline-flex;
+  align-items:center;
+  min-height:30px;
+  padding:6px 9px;
+  border:1px solid #cde1e3;
+  border-radius:999px;
+  background:#f0fafa;
+  color:var(--primary-dark);
+  font-size:10px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.version-history-list {
+  display:grid;
+  gap:14px;
+}
+.version-card {
+  display:grid;
+  grid-template-columns:260px minmax(0,1fr);
+  gap:18px;
+  align-items:center;
+  padding:16px;
+  border:1px solid var(--border);
+  border-radius:15px;
+  background:#fff;
+  box-shadow:0 6px 20px rgba(16,49,62,.04);
+}
+.version-card.current {
+  border-color:#9fd4d8;
+  box-shadow:0 0 0 3px rgba(15,159,168,.08);
+}
+.version-preview-wrap {
+  padding:10px;
+  border-radius:11px;
+  background:#f3f6f8;
+}
+.version-preview-wrap .template-thumbnail {
+  box-shadow:0 8px 18px rgba(15,23,42,.10);
+}
+.version-card-body {
+  display:grid;
+  gap:13px;
+  min-width:0;
+}
+.version-card-title {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+}
+.version-card-title h3 {
+  margin:0;
+  font-size:16px;
+  line-height:1.35;
+}
+.version-meta-row {
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+}
+.version-meta-row span {
+  padding:5px 7px;
+  border-radius:7px;
+  background:#f8fafc;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:700;
+}
+.version-lock-note {
+  color:var(--success);
+  font-size:11px;
+  font-weight:750;
+}
+.certificate-table .badge-version {
+  white-space:nowrap;
+}
+
+@media (max-width: 760px) {
+  .version-save-actions {
+    width:100%;
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .version-current-chip {
+    justify-content:center;
+    white-space:normal;
+    text-align:center;
+  }
+  .version-card {
+    grid-template-columns:1fr;
+  }
+  .version-card-title {
+    flex-direction:column;
+  }
+}
