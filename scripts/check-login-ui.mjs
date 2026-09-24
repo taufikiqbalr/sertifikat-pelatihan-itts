@@ -84,6 +84,21 @@ try {
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
   });
+  await check("Theme switcher offers many presets and persists the selected theme", async () => {
+    const trigger = page.locator('summary[aria-label^="Pilih tema"]');
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+    assert.equal(await page.locator('button[aria-pressed]').count(), 16, "Expected 16 theme choices");
+    await page.getByRole("button", { name: /Midnight/ }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "midnight");
+    assert.equal(await page.evaluate(() => localStorage.getItem("itts-system-theme")), "midnight");
+    await page.screenshot({ path: `${output}/login-theme-midnight.png`, fullPage: true });
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "midnight");
+    await page.locator('summary[aria-label^="Pilih tema"]').click();
+    await page.getByRole("button", { name: /^ITTS/ }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "itts");
+  });
   await check("Help is available without a dead reset-password link", async () => {
     await page.getByText("Butuh bantuan masuk?", { exact: true }).click();
     await expect(page.getByText(/Untuk kendala akses atau penggantian password/)).toBeVisible();

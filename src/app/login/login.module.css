@@ -144,3 +144,119 @@
 @media (prefers-reduced-motion: reduce) {
   .page *, .page *::before, .page *::after { animation: none !important; transition: none !important; }
 }
+
+
+/* Theme integration */
+.page {
+  --login-ink: var(--text);
+  --login-muted: var(--muted);
+  --login-teal: var(--primary);
+  --login-border: var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.frame,
+.formPanel,
+.failurePanel,
+.paper,
+.verificationCard {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.hero {
+  background:
+    radial-gradient(ellipse at 0% 100%, color-mix(in srgb, var(--primary) 17%, var(--surface)) 0%, transparent 70%),
+    linear-gradient(
+      130deg,
+      color-mix(in srgb, var(--primary) 10%, var(--surface)) 0%,
+      var(--surface-soft) 65%,
+      color-mix(in srgb, var(--accent) 8%, var(--surface)) 100%
+    );
+}
+.hero::after { border-color: color-mix(in srgb, var(--primary) 12%, transparent); }
+.heroEyebrow {
+  color: var(--muted);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+}
+.heroEyebrow > span { background: var(--primary); }
+.heroTitle,
+.brand strong,
+.title,
+.field label,
+.verificationCard strong { color: var(--text); }
+.heroTitle > span,
+.brand strong span,
+.backLink:hover,
+.eyebrow,
+.help summary { color: var(--primary); }
+.heroDescription,
+.brand small,
+.backLink,
+.paperCaption,
+.paperDetail,
+.paperBottom,
+.verificationCard small,
+.featureStrip > span,
+.subtitle,
+.help,
+.securityNote { color: var(--muted); }
+.brandMark,
+.submitButton { background: var(--primary); color: var(--primary-contrast); }
+.brandMark { box-shadow: 0 4px 10px color-mix(in srgb, var(--primary) 16%, transparent); }
+.paperBack {
+  border-color: var(--border);
+  background: var(--surface-soft);
+}
+.paper::before {
+  background: linear-gradient(90deg, var(--primary) 0 78%, var(--accent) 78%);
+}
+.paperTop { color: var(--muted); }
+.paperTop > span:first-child,
+.paperName,
+.paperBottom svg,
+.verificationIcon,
+.accessIcon { color: var(--primary); }
+.paperRule,
+.featureStrip,
+.securityNote { border-color: var(--border); }
+.paperRule { background: var(--border); }
+.verificationIcon,
+.accessIcon {
+  border-color: color-mix(in srgb, var(--primary) 24%, var(--border));
+  background: var(--primary-soft);
+}
+.inputWrap {
+  border-color: var(--border);
+  background: var(--surface-soft);
+}
+.inputWrap:focus-within {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.inputWrap > svg,
+.passwordToggle,
+.securityNote svg { color: var(--muted); }
+.inputWrap input { color: var(--text); }
+.inputWrap input::placeholder { color: var(--muted); }
+.passwordToggle:hover {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.submitButton {
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.submitButton:hover:not(:disabled) {
+  background: var(--primary-dark);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 24%, transparent);
+}
+.help p { background: var(--surface-soft); }
+.footer { color: var(--muted); }
+.skipLink { background: var(--surface); color: var(--primary); }
+.page a:focus-visible,
+.page button:focus-visible,
+.help summary:focus-visible,
+.errorAlert:focus-visible {
+  outline-color: var(--primary);
+}
