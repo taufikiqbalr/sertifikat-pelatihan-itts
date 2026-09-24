@@ -2054,3 +2054,10 @@ html[data-theme] .placeholder-list code {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Scale dynamic certificate typography with the certificate canvas itself. */
+.certificate-canvas,
+.template-thumbnail {
+  container-type: inline-size;
+}

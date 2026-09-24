@@ -56,14 +56,14 @@ export default function TemplatePreview({
                 top: field.y + "%",
                 width: field.width + "%",
                 transform: "translate(-50%, -50%)",
-                fontSize: Math.max(3.2, fittedSize * 0.19) + "px",
+                fontSize: fittedSize / 11.23 + "cqw",
                 fontWeight: field.fontWeight,
                 color: field.color,
                 textAlign: field.align,
                 fontStyle: field.italic ? "italic" : "normal",
                 lineHeight: field.lineHeight ?? 1.05,
                 letterSpacing: field.letterSpacing
-                  ? field.letterSpacing * 0.19 + "px"
+                  ? field.letterSpacing / 11.23 + "cqw"
                   : undefined,
                 overflow: "hidden",
                 overflowWrap: "break-word"

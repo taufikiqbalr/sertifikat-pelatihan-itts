@@ -125,14 +125,14 @@ export default function CertificateView({
                 top: field.y + "%",
                 width: field.width + "%",
                 transform: "translate(-50%, -50%)",
-                fontSize: fittedSize + "px",
+                fontSize: fittedSize / 11.23 + "cqw",
                 fontWeight: field.fontWeight,
                 color: field.color,
                 textAlign: field.align,
                 fontStyle: field.italic ? "italic" : "normal",
                 lineHeight: field.lineHeight ?? 1.12,
                 letterSpacing: field.letterSpacing
-                  ? field.letterSpacing + "px"
+                  ? field.letterSpacing / 11.23 + "cqw"
                   : undefined,
                 overflowWrap: "break-word",
                 padding: "3px 5px"
