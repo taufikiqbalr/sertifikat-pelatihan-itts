@@ -1,35 +1,24 @@
-import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
+import { listCertificateTemplates } from "@/lib/db";
+import AdminHeader from "../../admin-header";
 import EventEditor from "../../event-editor";
+
+export const dynamic = "force-dynamic";
 
 export default async function NewEventPage() {
   await requireAdmin();
+  const templates = await listCertificateTemplates(false);
 
   return (
     <>
-      <header className="topbar admin-topbar">
-        <div className="container topbar-inner">
-          <Link className="brand" href="/admin">
-            <span className="brand-mark">SI</span>
-            <span>
-              Sertifikat ITTS
-              <small>Certificate Management</small>
-            </span>
-          </Link>
-          <Link className="btn btn-secondary btn-small" href="/admin">
-            ← Dashboard
-          </Link>
-        </div>
-      </header>
-
+      <AdminHeader active="dashboard" />
       <main className="container page admin-page">
         <div className="workspace-page-header">
           <div>
-            <div className="breadcrumb">Dashboard / Kegiatan / Baru</div>
+            <div className="breadcrumb">Kegiatan / Baru</div>
             <h1 className="page-title">Buat kegiatan baru</h1>
             <p>
-              Lengkapi informasi kegiatan lalu susun template sertifikat sebelum diterbitkan
-              kepada peserta.
+              Lengkapi informasi kegiatan dan pilih master template dari Template Library.
             </p>
           </div>
           <div className="workflow-badge">
@@ -38,7 +27,7 @@ export default async function NewEventPage() {
           </div>
         </div>
 
-        <EventEditor />
+        <EventEditor templates={templates} />
       </main>
     </>
   );

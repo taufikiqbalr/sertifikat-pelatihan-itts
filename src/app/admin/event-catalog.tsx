@@ -28,7 +28,8 @@ export default function EventCatalog({ events }: { events: EventSummary[] }) {
         !normalized ||
         event.title.toLowerCase().includes(normalized) ||
         event.organizer.toLowerCase().includes(normalized) ||
-        event.certificate_prefix.toLowerCase().includes(normalized);
+        event.certificate_prefix.toLowerCase().includes(normalized) ||
+        (event.template_name ?? "").toLowerCase().includes(normalized);
       return matchesStatus && matchesQuery;
     });
   }, [events, query, status]);
@@ -42,7 +43,7 @@ export default function EventCatalog({ events }: { events: EventSummary[] }) {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Cari kegiatan, penyelenggara, atau prefix..."
+            placeholder="Cari kegiatan, template, penyelenggara, atau prefix..."
             aria-label="Cari kegiatan"
           />
         </div>
@@ -83,7 +84,7 @@ export default function EventCatalog({ events }: { events: EventSummary[] }) {
                   {statusLabels[event.status]}
                 </span>
                 <span className="template-kind">
-                  {event.template_image_url ? "Template custom" : "Template ITTS"}
+                  {event.template_name || "Template legacy"}
                 </span>
               </div>
 

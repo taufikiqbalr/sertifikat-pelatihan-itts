@@ -4,8 +4,16 @@ import crypto from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { clearAdminSession, requireAdmin } from "@/lib/auth";
-import { getEvent, runQuery } from "@/lib/db";
-import { DEFAULT_TEMPLATE_CONFIG, slugify, type TemplateConfig } from "@/lib/types";
+import {
+  getCertificateTemplate,
+  getEvent,
+  runQuery
+} from "@/lib/db";
+import {
+  DEFAULT_TEMPLATE_CONFIG,
+  slugify,
+  type TemplateConfig
+} from "@/lib/types";
 
 function text(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -28,6 +36,25 @@ function autoCertificateNumber(prefix: string, eventDate: string) {
   return [prefix || "ITTS/CERT", year, suffix].filter(Boolean).join("/");
 }
 
+async function resolveTemplate(templateId: string) {
+  let template = templateId ? await getCertificateTemplate(templateId) : null;
+
+  if (!template) {
+    const rows = await runQuery(
+      "SELECT id FROM certificate_templates " +
+        "WHERE status='active' ORDER BY is_default DESC, created_at ASC LIMIT 1"
+    );
+    const fallbackId = rows[0]?.id ? String(rows[0].id) : "";
+    template = fallbackId ? await getCertificateTemplate(fallbackId) : null;
+  }
+
+  if (!template) {
+    throw new Error("Belum ada template sertifikat aktif. Buat template terlebih dahulu.");
+  }
+
+  return template;
+}
+
 export async function logoutAction() {
   await clearAdminSession();
   redirect("/");
@@ -43,17 +70,22 @@ export async function saveEventAction(formData: FormData) {
   const signatory = text(formData, "signatory");
   const description = text(formData, "description");
   const prefix = text(formData, "certificate_prefix") || "ITTS/CERT";
-  const templateImageUrl = text(formData, "template_image_url");
   const status = text(formData, "status") || "active";
-  const config = parseConfig(text(formData, "template_config"));
+  const template = await resolveTemplate(text(formData, "template_id"));
 
   if (!title || !eventDate || !organizer) {
     throw new Error("Nama kegiatan, tanggal, dan penyelenggara wajib diisi.");
   }
 
+  const templateImageUrl = template.template_image_url || null;
+  const templateConfig = JSON.stringify(template.template_config);
+
   if (existingId) {
     await runQuery(
-      "UPDATE events SET title=$1, event_date=$2, organizer=$3, signatory=$4, description=$5, certificate_prefix=$6, template_image_url=$7, template_config=$8::jsonb, status=$9, updated_at=NOW() WHERE id=$10",
+      "UPDATE events SET " +
+        "title=$1, event_date=$2, organizer=$3, signatory=$4, description=$5, " +
+        "certificate_prefix=$6, template_id=$7, template_image_url=$8, " +
+        "template_config=$9::jsonb, status=$10, updated_at=NOW() WHERE id=$11",
       [
         title,
         eventDate,
@@ -61,14 +93,17 @@ export async function saveEventAction(formData: FormData) {
         signatory,
         description || null,
         prefix,
-        templateImageUrl || null,
-        JSON.stringify(config),
+        template.id,
+        templateImageUrl,
+        templateConfig,
         status,
         existingId
       ]
     );
+
     revalidatePath("/admin");
     revalidatePath("/admin/events/" + existingId);
+    revalidatePath("/admin/templates");
     redirect("/admin/events/" + existingId + "?saved=1");
   }
 
@@ -78,7 +113,10 @@ export async function saveEventAction(formData: FormData) {
   if (duplicate.length) slug += "-" + id.slice(0, 6);
 
   await runQuery(
-    "INSERT INTO events (id, slug, title, event_date, organizer, signatory, description, certificate_prefix, template_image_url, template_config, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11)",
+    "INSERT INTO events " +
+      "(id, slug, title, event_date, organizer, signatory, description, certificate_prefix, " +
+      "template_id, template_image_url, template_config, status) " +
+      "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12)",
     [
       id,
       slug,
@@ -88,14 +126,149 @@ export async function saveEventAction(formData: FormData) {
       signatory,
       description || null,
       prefix,
-      templateImageUrl || null,
-      JSON.stringify(config),
+      template.id,
+      templateImageUrl,
+      templateConfig,
       status
     ]
   );
 
   revalidatePath("/admin");
+  revalidatePath("/admin/templates");
   redirect("/admin/events/" + id + "?created=1");
+}
+
+export async function saveTemplateAction(formData: FormData) {
+  await requireAdmin();
+
+  const existingId = text(formData, "id");
+  const id = existingId || crypto.randomUUID();
+  const name = text(formData, "name");
+  const description = text(formData, "description");
+  const imageUrl = text(formData, "template_image_url");
+  const config = parseConfig(text(formData, "template_config"));
+  const status = text(formData, "status") === "archived" ? "archived" : "active";
+  const isDefault = text(formData, "is_default") === "true";
+
+  if (!name) throw new Error("Nama template wajib diisi.");
+
+  if (isDefault) {
+    await runQuery("UPDATE certificate_templates SET is_default=FALSE WHERE id<>$1", [id]);
+  }
+
+  if (existingId) {
+    await runQuery(
+      "UPDATE certificate_templates SET " +
+        "name=$1, description=$2, template_image_url=$3, template_config=$4::jsonb, " +
+        "is_default=$5, status=$6, updated_at=NOW() WHERE id=$7",
+      [
+        name,
+        description || null,
+        imageUrl || null,
+        JSON.stringify(config),
+        isDefault,
+        isDefault ? "active" : status,
+        id
+      ]
+    );
+  } else {
+    await runQuery(
+      "INSERT INTO certificate_templates " +
+        "(id, name, description, template_image_url, template_config, is_default, status) " +
+        "VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)",
+      [
+        id,
+        name,
+        description || null,
+        imageUrl || null,
+        JSON.stringify(config),
+        isDefault,
+        isDefault ? "active" : status
+      ]
+    );
+  }
+
+  // Keep fallback snapshots in events synchronized. Reads resolve live from template,
+  // but these fields preserve compatibility if a template reference is unavailable.
+  await runQuery(
+    "UPDATE events SET template_image_url=$1, template_config=$2::jsonb, updated_at=NOW() " +
+      "WHERE template_id=$3",
+    [imageUrl || null, JSON.stringify(config), id]
+  );
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/templates");
+  revalidatePath("/admin/templates/" + id);
+
+  if (existingId) {
+    redirect("/admin/templates/" + id + "?saved=1");
+  }
+  redirect("/admin/templates/" + id + "?created=1");
+}
+
+export async function duplicateTemplateAction(formData: FormData) {
+  await requireAdmin();
+
+  const sourceId = text(formData, "template_id");
+  const source = await getCertificateTemplate(sourceId);
+  if (!source) throw new Error("Template tidak ditemukan.");
+
+  const id = crypto.randomUUID();
+  await runQuery(
+    "INSERT INTO certificate_templates " +
+      "(id, name, description, template_image_url, template_config, is_default, status) " +
+      "VALUES ($1,$2,$3,$4,$5::jsonb,FALSE,'active')",
+    [
+      id,
+      source.name + " (Salinan)",
+      source.description,
+      source.template_image_url,
+      JSON.stringify(source.template_config)
+    ]
+  );
+
+  revalidatePath("/admin/templates");
+  redirect("/admin/templates/" + id + "?duplicated=1");
+}
+
+export async function setDefaultTemplateAction(formData: FormData) {
+  await requireAdmin();
+
+  const id = text(formData, "template_id");
+  const template = await getCertificateTemplate(id);
+  if (!template) throw new Error("Template tidak ditemukan.");
+
+  await runQuery("UPDATE certificate_templates SET is_default=FALSE");
+  await runQuery(
+    "UPDATE certificate_templates SET is_default=TRUE, status='active', updated_at=NOW() WHERE id=$1",
+    [id]
+  );
+
+  revalidatePath("/admin/templates");
+  revalidatePath("/admin/templates/" + id);
+  revalidatePath("/admin");
+  redirect("/admin/templates/" + id + "?default=1");
+}
+
+export async function toggleTemplateStatusAction(formData: FormData) {
+  await requireAdmin();
+
+  const id = text(formData, "template_id");
+  const template = await getCertificateTemplate(id);
+  if (!template) throw new Error("Template tidak ditemukan.");
+  if (template.is_default && template.status === "active") {
+    throw new Error("Template default tidak dapat diarsipkan. Tetapkan template lain sebagai default terlebih dahulu.");
+  }
+
+  const nextStatus = template.status === "active" ? "archived" : "active";
+  await runQuery(
+    "UPDATE certificate_templates SET status=$1, updated_at=NOW() WHERE id=$2",
+    [nextStatus, id]
+  );
+
+  revalidatePath("/admin/templates");
+  revalidatePath("/admin/templates/" + id);
+  redirect("/admin/templates/" + id + "?status=1");
 }
 
 function parseParticipants(raw: string) {
@@ -106,7 +279,9 @@ function parseParticipants(raw: string) {
     .filter((line, index) => !(index === 0 && /^nama[,;|]/i.test(line)))
     .map((line) => {
       const delimiter = line.includes("|") ? "|" : line.includes(";") ? ";" : ",";
-      const [name = "", email = "", number = ""] = line.split(delimiter).map((part) => part.trim());
+      const [name = "", email = "", number = ""] = line
+        .split(delimiter)
+        .map((part) => part.trim());
       return { name, email, number };
     })
     .filter((row) => row.name);
@@ -125,16 +300,33 @@ export async function issueCertificatesAction(formData: FormData) {
   for (const participant of participants) {
     const id = crypto.randomUUID();
     const publicId = crypto.randomUUID().replace(/-/g, "");
-    let number = participant.number || autoCertificateNumber(event.certificate_prefix, event.event_date);
+    let number =
+      participant.number ||
+      autoCertificateNumber(event.certificate_prefix, event.event_date);
 
     if (!participant.number) {
-      const existing = await runQuery("SELECT id FROM certificates WHERE certificate_number=$1 LIMIT 1", [number]);
-      if (existing.length) number = autoCertificateNumber(event.certificate_prefix, event.event_date);
+      const existing = await runQuery(
+        "SELECT id FROM certificates WHERE certificate_number=$1 LIMIT 1",
+        [number]
+      );
+      if (existing.length) {
+        number = autoCertificateNumber(event.certificate_prefix, event.event_date);
+      }
     }
 
     await runQuery(
-      "INSERT INTO certificates (id, public_id, event_id, participant_name, participant_email, certificate_number, custom_data) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)",
-      [id, publicId, eventId, participant.name, participant.email || null, number, "{}"]
+      "INSERT INTO certificates " +
+        "(id, public_id, event_id, participant_name, participant_email, certificate_number, custom_data) " +
+        "VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)",
+      [
+        id,
+        publicId,
+        eventId,
+        participant.name,
+        participant.email || null,
+        number,
+        "{}"
+      ]
     );
   }
 

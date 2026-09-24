@@ -1,14 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { getEvent, listCertificates } from "@/lib/db";
+import {
+  getEvent,
+  listCertificateTemplates,
+  listCertificates
+} from "@/lib/db";
 import { formatDateId } from "@/lib/types";
+import AdminHeader from "../../admin-header";
 import EventEditor from "../../event-editor";
 import {
   issueCertificatesAction,
   restoreCertificateAction,
   revokeCertificateAction
 } from "../../actions";
+
+export const dynamic = "force-dynamic";
 
 export default async function EventDetailPage({
   params,
@@ -20,33 +27,25 @@ export default async function EventDetailPage({
   await requireAdmin();
   const { id } = await params;
   const query = await searchParams;
-  const event = await getEvent(id);
+
+  const [event, certificates, templates] = await Promise.all([
+    getEvent(id),
+    listCertificates(id),
+    listCertificateTemplates(true)
+  ]);
+
   if (!event) notFound();
 
-  const certificates = await listCertificates(id);
   const validCount = certificates.filter((certificate) => certificate.status === "valid").length;
 
   return (
     <>
-      <header className="topbar admin-topbar">
-        <div className="container topbar-inner">
-          <Link className="brand" href="/admin">
-            <span className="brand-mark">SI</span>
-            <span>
-              Sertifikat ITTS
-              <small>Certificate Management</small>
-            </span>
-          </Link>
-          <Link className="btn btn-secondary btn-small" href="/admin">
-            ← Semua kegiatan
-          </Link>
-        </div>
-      </header>
+      <AdminHeader active="dashboard" />
 
       <main className="container page admin-page">
         <div className="event-detail-hero">
           <div className="event-detail-main">
-            <div className="breadcrumb">Dashboard / Kegiatan</div>
+            <div className="breadcrumb">Kegiatan / Detail</div>
             <div className="event-title-line">
               <h1 className="page-title">{event.title}</h1>
               <span
@@ -82,20 +81,20 @@ export default async function EventDetailPage({
             </div>
             <div>
               <span>Template</span>
-              <strong>{event.template_image_url ? "Custom" : "ITTS"}</strong>
+              <strong>{event.template_name || "Legacy"}</strong>
             </div>
           </div>
         </div>
 
         {query.created ? (
           <div className="alert alert-success" style={{ marginBottom: 18 }}>
-            <strong>Kegiatan berhasil dibuat.</strong> Selanjutnya Anda dapat menyempurnakan
-            template dan menerbitkan sertifikat peserta.
+            <strong>Kegiatan berhasil dibuat.</strong> Template sudah terhubung dari Template
+            Library dan kegiatan siap menerbitkan sertifikat.
           </div>
         ) : null}
         {query.saved ? (
           <div className="alert alert-success" style={{ marginBottom: 18 }}>
-            Perubahan kegiatan dan template berhasil disimpan.
+            Perubahan kegiatan berhasil disimpan.
           </div>
         ) : null}
 
@@ -103,11 +102,22 @@ export default async function EventDetailPage({
           <div className="section-heading-row">
             <div>
               <span className="section-kicker">01 · Konfigurasi</span>
-              <h2>Kegiatan & template</h2>
-              <p>Edit informasi master dan layout sertifikat dengan live preview.</p>
+              <h2>Informasi & template kegiatan</h2>
+              <p>
+                Ubah metadata kegiatan atau assign template lain dari Template Library.
+              </p>
             </div>
+            {event.template_id ? (
+              <Link
+                className="btn btn-secondary btn-small"
+                href={"/admin/templates/" + event.template_id}
+              >
+                Edit template master
+              </Link>
+            ) : null}
           </div>
-          <EventEditor event={event} />
+
+          <EventEditor event={event} templates={templates} />
         </section>
 
         <section className="workspace-section">

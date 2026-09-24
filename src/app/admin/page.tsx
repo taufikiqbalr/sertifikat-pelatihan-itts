@@ -6,7 +6,7 @@ import {
   hasDatabaseConfig,
   listEventsWithStats
 } from "@/lib/db";
-import { logoutAction } from "./actions";
+import AdminHeader from "./admin-header";
 import EventCatalog, { type EventSummary } from "./event-catalog";
 
 export const dynamic = "force-dynamic";
@@ -30,27 +30,7 @@ export default async function AdminPage() {
 
   return (
     <>
-      <header className="topbar admin-topbar">
-        <div className="container topbar-inner">
-          <Link className="brand" href="/admin">
-            <span className="brand-mark">SI</span>
-            <span>
-              Sertifikat ITTS
-              <small>Certificate Management</small>
-            </span>
-          </Link>
-          <nav className="nav">
-            <Link className="btn btn-primary btn-small" href="/admin/events/new">
-              + Buat Kegiatan
-            </Link>
-            <form action={logoutAction}>
-              <button className="btn btn-secondary btn-small" type="submit">
-                Keluar
-              </button>
-            </form>
-          </nav>
-        </div>
-      </header>
+      <AdminHeader active="dashboard" />
 
       <main className="container page admin-page">
         <div className="dashboard-hero">
@@ -58,13 +38,18 @@ export default async function AdminPage() {
             <span className="section-kicker">Certificate Management</span>
             <h1 className="page-title">Manajemen Sertifikat</h1>
             <p>
-              Kelola kegiatan, desain template, penerbitan peserta, dan validasi sertifikat
-              dari satu workspace.
+              Kelola kegiatan, assign template reusable, terbitkan sertifikat, dan pantau
+              status validasi dari satu workspace.
             </p>
           </div>
-          <Link className="btn btn-primary" href="/admin/events/new">
-            Buat kegiatan baru
-          </Link>
+          <div className="hero-actions">
+            <Link className="btn btn-secondary" href="/admin/templates">
+              Template Library
+            </Link>
+            <Link className="btn btn-primary" href="/admin/events/new">
+              Buat kegiatan baru
+            </Link>
+          </div>
         </div>
 
         {!configured ? (
@@ -124,7 +109,7 @@ export default async function AdminPage() {
               <div className="empty-state-icon">+</div>
               <h3>Belum ada kegiatan</h3>
               <p>
-                Buat kegiatan pertama, pilih template sertifikat, lalu terbitkan sertifikat
+                Buat kegiatan pertama, assign master template, lalu terbitkan sertifikat
                 peserta.
               </p>
               <Link className="btn btn-primary" href="/admin/events/new">
