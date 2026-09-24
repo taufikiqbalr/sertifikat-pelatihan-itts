@@ -200,6 +200,7 @@ export default async function EventDetailPage({
                       <th>Nomor Sertifikat</th>
                       <th>Terbit</th>
                       <th>Versi</th>
+                      <th>Google Drive</th>
                       <th>Status</th>
                       <th>Aksi</th>
                     </tr>
@@ -219,6 +220,20 @@ export default async function EventDetailPage({
                           <span className="badge badge-version">
                             v{cert.template_version_number ?? "—"}
                           </span>
+                        </td>
+                        <td>
+                          {cert.drive_web_view_link ? (
+                            <a
+                              className="badge badge-drive"
+                              href={cert.drive_web_view_link}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Tersimpan ↗
+                            </a>
+                          ) : (
+                            <span className="badge badge-neutral">Belum</span>
+                          )}
                         </td>
                         <td>
                           <span

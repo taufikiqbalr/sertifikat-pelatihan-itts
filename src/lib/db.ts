@@ -380,6 +380,21 @@ export async function ensureSchema() {
       await query.query(
         "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS issuance_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb"
       );
+      await query.query(
+        "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS drive_file_id TEXT"
+      );
+      await query.query(
+        "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS drive_file_name TEXT"
+      );
+      await query.query(
+        "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS drive_folder_id TEXT"
+      );
+      await query.query(
+        "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS drive_web_view_link TEXT"
+      );
+      await query.query(
+        "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS drive_uploaded_at TIMESTAMPTZ"
+      );
 
       await query.query(
         "CREATE TABLE IF NOT EXISTS certificate_template_versions (" +

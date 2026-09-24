@@ -23,6 +23,7 @@ Aplikasi web untuk menerbitkan dan memvalidasi sertifikat peserta webinar, pelat
 - QR Code pada setiap sertifikat menuju halaman validasi publik.
 - Status sertifikat: `valid` atau `revoked`.
 - Sertifikat dapat diunduh sebagai PNG dan PDF.
+- PDF sertifikat dapat diarsipkan ke Google Drive langsung dari halaman sertifikat admin.
 - Data disimpan di PostgreSQL/Neon.
 - Upload gambar menggunakan Vercel Blob jika tersedia; jika tidak, gambar disimpan sebagai data URL pada PostgreSQL.
 - Siap untuk deployment di Vercel.
@@ -72,6 +73,13 @@ ADMIN_PASSWORD=gunakan-password-yang-kuat
 AUTH_SECRET=isi-random-secret-minimal-24-karakter
 BLOB_READ_WRITE_TOKEN=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Google Drive (optional)
+GOOGLE_DRIVE_CLIENT_ID=
+GOOGLE_DRIVE_CLIENT_SECRET=
+GOOGLE_DRIVE_REFRESH_TOKEN=
+GOOGLE_DRIVE_ROOT_FOLDER_ID=
+GOOGLE_DRIVE_ROOT_FOLDER_NAME=Sertifikat Pelatihan ITTS
 ```
 
 ### Keterangan
@@ -84,6 +92,11 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 | `AUTH_SECRET` | Ya | HMAC signing untuk session cookie admin. Gunakan nilai acak minimal 24 karakter. |
 | `BLOB_READ_WRITE_TOKEN` | Tidak | Token Vercel Blob. Jika kosong, upload template disimpan inline di PostgreSQL. |
 | `NEXT_PUBLIC_APP_URL` | Disarankan | URL canonical aplikasi agar QR Code menggunakan domain produksi. |
+| `GOOGLE_DRIVE_CLIENT_ID` | Untuk Drive OAuth | OAuth Client ID Google Cloud. |
+| `GOOGLE_DRIVE_CLIENT_SECRET` | Untuk Drive OAuth | OAuth Client Secret Google Cloud. |
+| `GOOGLE_DRIVE_REFRESH_TOKEN` | Untuk Drive OAuth | Refresh token akun Google yang akan memiliki file PDF. |
+| `GOOGLE_DRIVE_ROOT_FOLDER_ID` | Opsional | Folder tujuan eksplisit. Jika kosong pada OAuth user, aplikasi membuat/reuse folder utama otomatis. |
+| `GOOGLE_DRIVE_ROOT_FOLDER_NAME` | Tidak | Nama folder utama otomatis; default `Sertifikat Pelatihan ITTS`. |
 
 > Jangan commit file `.env` atau nilai secret ke repository.
 
@@ -179,6 +192,65 @@ NEXT_PUBLIC_APP_URL=https://sertifikat.itts.ac.id
 
 Kemudian redeploy agar QR Code menggunakan domain produksi.
 
+
+## Arsip Sertifikat ke Google Drive
+
+Google Drive API **tidak menggunakan Gmail App Password**. Untuk akun Google biasa/My Drive,
+gunakan OAuth 2.0 agar PDF dimiliki oleh akun Google yang melakukan otorisasi.
+
+Alur folder otomatis:
+
+```text
+Sertifikat Pelatihan ITTS
+  └── 2026-09-25 - Nama Kegiatan
+        ├── ITTS-CERT-2026-0001 - Nama Peserta.pdf
+        └── ...
+```
+
+### Setup OAuth akun Google
+
+1. Di Google Cloud Console, aktifkan **Google Drive API**.
+2. Buat **OAuth 2.0 Client ID** tipe **Desktop app** atau **Web application**.
+3. Set `GOOGLE_DRIVE_CLIENT_ID` dan `GOOGLE_DRIVE_CLIENT_SECRET` secara lokal.
+4. Jalankan:
+
+```bash
+node scripts/google-drive-auth.mjs
+```
+
+5. Helper menampilkan redirect URI localhost yang perlu didaftarkan pada OAuth client dan URL otorisasi.
+6. Login menggunakan akun Google yang akan menyimpan PDF dan berikan izin Drive.
+7. Salin refresh token yang dihasilkan ke Vercel sebagai `GOOGLE_DRIVE_REFRESH_TOKEN`.
+8. Redeploy project.
+
+Jika `GOOGLE_DRIVE_ROOT_FOLDER_ID` kosong, aplikasi akan membuat atau menggunakan kembali
+folder **Sertifikat Pelatihan ITTS** pada My Drive akun OAuth tersebut.
+
+### Service account
+
+Service account juga didukung melalui:
+
+```env
+GOOGLE_SERVICE_ACCOUNT_EMAIL=
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=
+GOOGLE_DRIVE_IMPERSONATE_USER=
+GOOGLE_DRIVE_ROOT_FOLDER_ID=
+```
+
+Tanpa domain-wide delegation/impersonation, service account harus menulis ke **Google Shared Drive**,
+bukan My Drive pribadi.
+
+### Penggunaan
+
+Buka sertifikat dari halaman admin. Admin akan melihat tombol:
+
+- **Simpan ke Drive** untuk upload pertama.
+- **Perbarui di Drive** jika file sudah pernah di-upload.
+- **Buka di Drive** setelah arsip tersedia.
+
+Metadata file Drive disimpan pada tabel `certificates`, sehingga upload berikutnya memperbarui file
+yang sama dan tidak membuat duplikat baru.
+
 ## Struktur Database
 
 ### events
@@ -206,7 +278,10 @@ Menyimpan:
 - event,
 - tanggal terbit,
 - status valid/revoked,
-- alasan pencabutan.
+- alasan pencabutan,
+- Google Drive file/folder ID,
+- link Google Drive,
+- waktu upload Drive.
 
 ## Alur Sertifikat
 

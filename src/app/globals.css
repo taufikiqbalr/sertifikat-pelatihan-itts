@@ -2061,3 +2061,30 @@ html[data-theme] .placeholder-list code {
 .template-thumbnail {
   container-type: inline-size;
 }
+
+
+/* ===== Google Drive certificate archive ===== */
+.btn-drive {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 34%, var(--border));
+  background: color-mix(in srgb, var(--success) 7%, var(--surface));
+}
+.btn-drive:hover:not(:disabled) {
+  color: var(--surface);
+  border-color: var(--success);
+  background: var(--success);
+}
+.btn-drive:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+.badge-drive {
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, var(--border));
+  background: color-mix(in srgb, var(--success) 9%, var(--surface));
+}
+.badge-drive:hover {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 15%, var(--surface));
+}

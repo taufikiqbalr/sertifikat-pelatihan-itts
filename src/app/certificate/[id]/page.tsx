@@ -1,11 +1,13 @@
 import Link from "next/link";
 import BrandLogo from "../../brand-logo";
 import { notFound } from "next/navigation";
+import { isAdmin } from "@/lib/auth";
 import {
   getCertificate,
   getCertificateRenderTemplate,
   getEvent
 } from "@/lib/db";
+import { getGoogleDriveConfiguration } from "@/lib/google-drive";
 import CertificateView from "./view";
 
 export const dynamic = "force-dynamic";
@@ -20,12 +22,15 @@ export default async function CertificatePage({
   const certificate = await getCertificate(id);
   if (!certificate) notFound();
 
-  const [event, templateVersion] = await Promise.all([
+  const [event, templateVersion, adminSession] = await Promise.all([
     getEvent(certificate.event_id),
-    getCertificateRenderTemplate(certificate.id)
+    getCertificateRenderTemplate(certificate.id),
+    isAdmin()
   ]);
 
   if (!event || !templateVersion) notFound();
+
+  const driveConfiguration = getGoogleDriveConfiguration();
 
   return (
     <>
@@ -48,6 +53,8 @@ export default async function CertificatePage({
           certificate={certificate}
           event={event}
           templateVersion={templateVersion}
+          canArchiveToDrive={adminSession}
+          driveConfigured={driveConfiguration.configured}
         />
       </main>
     </>

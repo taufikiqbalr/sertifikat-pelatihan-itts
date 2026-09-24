@@ -93,6 +93,11 @@ export type CertificateRecord = {
   issued_at: string;
   revoked_at: string | null;
   revoke_reason: string | null;
+  drive_file_id: string | null;
+  drive_file_name: string | null;
+  drive_folder_id: string | null;
+  drive_web_view_link: string | null;
+  drive_uploaded_at: string | null;
 };
 
 export type TemplateUsageRecord = {
