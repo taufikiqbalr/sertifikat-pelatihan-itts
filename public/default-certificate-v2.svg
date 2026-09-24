@@ -35,7 +35,7 @@
 
   <!-- certificate number safe zone -->
   <text x="561.5" y="202" text-anchor="middle" fill="#89979D" font-family="Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="2.5">NOMOR SERTIFIKAT</text>
-  <rect x="292" y="211" width="539" height="42" rx="12" fill="#F0F8F8" stroke="#D8ECEB"/>
+  <rect x="210" y="211" width="703" height="42" rx="12" fill="#F0F8F8" stroke="#D8ECEB"/>
   <line x1="168" y1="271" x2="955" y2="271" stroke="#DCE6E8" stroke-width="1.5"/>
 
   <!-- participant zone -->
