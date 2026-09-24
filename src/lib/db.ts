@@ -251,6 +251,9 @@ export async function ensureSchema() {
       await query.query(
         "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS template_version_number INTEGER"
       );
+      await query.query(
+        "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS issuance_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb"
+      );
 
       await query.query(
         "CREATE TABLE IF NOT EXISTS certificate_template_versions (" +
@@ -287,6 +290,16 @@ export async function ensureSchema() {
       await seedDefaultTemplate(query);
       await migrateLegacyTemplates(query);
       await migrateTemplateVersions(query);
+      await query.query(
+        "UPDATE certificates c SET issuance_snapshot=jsonb_build_object(" +
+          "'event_title', e.title, " +
+          "'event_date', e.event_date::text, " +
+          "'organizer', e.organizer, " +
+          "'signatory', e.signatory, " +
+          "'certificate_prefix', e.certificate_prefix" +
+        ") FROM events e " +
+        "WHERE c.event_id=e.id AND c.issuance_snapshot='{}'::jsonb"
+      );
     })();
   }
 

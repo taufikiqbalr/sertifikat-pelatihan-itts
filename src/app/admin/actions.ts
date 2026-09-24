@@ -465,11 +465,19 @@ export async function issueCertificatesAction(formData: FormData) {
       }
     }
 
+    const issuanceSnapshot = {
+      event_title: event.title,
+      event_date: event.event_date,
+      organizer: event.organizer,
+      signatory: event.signatory,
+      certificate_prefix: event.certificate_prefix
+    };
+
     await runQuery(
       "INSERT INTO certificates " +
         "(id, public_id, event_id, participant_name, participant_email, certificate_number, " +
-        "custom_data, template_version_id, template_version_number) " +
-        "VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9)",
+        "custom_data, issuance_snapshot, template_version_id, template_version_number) " +
+        "VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10)",
       [
         id,
         publicId,
@@ -478,6 +486,7 @@ export async function issueCertificatesAction(formData: FormData) {
         participant.email || null,
         number,
         "{}",
+        JSON.stringify(issuanceSnapshot),
         template.current_version_id,
         template.current_version
       ]

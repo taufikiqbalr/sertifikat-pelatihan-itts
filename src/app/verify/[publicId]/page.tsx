@@ -30,6 +30,10 @@ export default async function VerifyPage({ params }: { params: Promise<{ publicI
   }
 
   const valid = certificate.status === "valid";
+  const snapshot = certificate.issuance_snapshot || {};
+  const eventTitle = snapshot.event_title || event.title;
+  const eventDate = snapshot.event_date || event.event_date;
+  const organizer = snapshot.organizer || event.organizer;
 
   return (
     <main className="verify-shell">
@@ -45,9 +49,9 @@ export default async function VerifyPage({ params }: { params: Promise<{ publicI
 
         <div className="detail-list">
           <div className="detail-item"><span>Nomor Sertifikat</span><strong>{certificate.certificate_number}</strong></div>
-          <div className="detail-item"><span>Nama Kegiatan</span><strong>{event.title}</strong></div>
-          <div className="detail-item"><span>Tanggal Kegiatan</span><strong>{formatDateId(event.event_date)}</strong></div>
-          <div className="detail-item"><span>Penyelenggara</span><strong>{event.organizer}</strong></div>
+          <div className="detail-item"><span>Nama Kegiatan</span><strong>{eventTitle}</strong></div>
+          <div className="detail-item"><span>Tanggal Kegiatan</span><strong>{formatDateId(eventDate)}</strong></div>
+          <div className="detail-item"><span>Penyelenggara</span><strong>{organizer}</strong></div>
           <div className="detail-item"><span>Tanggal Terbit</span><strong>{formatDateId(certificate.issued_at)}</strong></div>
           <div className="detail-item"><span>Versi Template</span><strong>v{certificate.template_version_number ?? "—"}</strong></div>
           <div className="detail-item"><span>ID Validasi</span><strong>{certificate.public_id.slice(0, 16).toUpperCase()}</strong></div>

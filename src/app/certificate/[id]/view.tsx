@@ -28,18 +28,18 @@ export default function CertificateView({
     if (!origin) setOrigin(window.location.origin);
   }, [origin]);
 
-  const values = useMemo(
-    () => ({
+  const values = useMemo(() => {
+    const snapshot = certificate.issuance_snapshot || {};
+    return {
       participant_name: certificate.participant_name,
       certificate_number: certificate.certificate_number,
-      event_title: event.title,
-      event_date: formatDateId(event.event_date),
-      organizer: event.organizer,
-      signatory: event.signatory,
+      event_title: snapshot.event_title || event.title,
+      event_date: formatDateId(snapshot.event_date || event.event_date),
+      organizer: snapshot.organizer || event.organizer,
+      signatory: snapshot.signatory || event.signatory,
       ...certificate.custom_data
-    }),
-    [certificate, event]
-  );
+    };
+  }, [certificate, event]);
 
   const verifyUrl = (origin || "") + "/verify/" + certificate.public_id;
   const config = templateVersion.template_config;

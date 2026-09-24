@@ -77,6 +77,7 @@ export type CertificateRecord = {
   participant_email: string | null;
   certificate_number: string;
   custom_data: Record<string, string>;
+  issuance_snapshot: Record<string, string>;
   template_version_id: string | null;
   template_version_number: number | null;
   status: "valid" | "revoked";
