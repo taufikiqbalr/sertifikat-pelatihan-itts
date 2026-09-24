@@ -5,16 +5,35 @@ import { redirect } from "next/navigation";
 
 const COOKIE_NAME = "itts_cert_admin";
 
-function secret() {
-  const value = process.env.AUTH_SECRET;
-  if (!value || value.length < 24) {
-    throw new Error("AUTH_SECRET wajib dikonfigurasi minimal 24 karakter.");
+function explicitSecret() {
+  const value = process.env.AUTH_SECRET?.trim();
+  return value && value.length >= 24 ? value : null;
+}
+
+function derivedFallbackSecret() {
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? "";
+  const password = process.env.ADMIN_PASSWORD ?? "";
+
+  if (!email || !password) {
+    throw new Error(
+      "Konfigurasi autentikasi belum lengkap. ADMIN_EMAIL dan ADMIN_PASSWORD wajib diisi."
+    );
   }
-  return value;
+
+  // Fallback supaya login tidak crash jika AUTH_SECRET belum diset.
+  // Untuk production tetap disarankan menggunakan AUTH_SECRET acak tersendiri.
+  return crypto
+    .createHash("sha256")
+    .update(email + "|" + password + "|itts-certificate-session-v1")
+    .digest("base64url");
+}
+
+function sessionSecret() {
+  return explicitSecret() ?? derivedFallbackSecret();
 }
 
 function sign(value: string) {
-  return crypto.createHmac("sha256", secret()).update(value).digest("base64url");
+  return crypto.createHmac("sha256", sessionSecret()).update(value).digest("base64url");
 }
 
 function safeEqual(a: string, b: string) {
@@ -24,23 +43,38 @@ function safeEqual(a: string, b: string) {
 }
 
 export function verifyCredentials(email: string, password: string) {
-  const expectedEmail = process.env.ADMIN_EMAIL ?? "";
+  const expectedEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? "";
   const expectedPassword = process.env.ADMIN_PASSWORD ?? "";
+
   return (
     expectedEmail.length > 0 &&
     expectedPassword.length > 0 &&
-    safeEqual(email, expectedEmail) &&
+    safeEqual(email.trim().toLowerCase(), expectedEmail) &&
     safeEqual(password, expectedPassword)
   );
 }
 
+export function getAuthConfiguration() {
+  return {
+    adminEmailConfigured: Boolean(process.env.ADMIN_EMAIL?.trim()),
+    adminPasswordConfigured: Boolean(process.env.ADMIN_PASSWORD),
+    authSecretConfigured: Boolean(explicitSecret()),
+    sessionSecretSource: explicitSecret() ? "AUTH_SECRET" : "derived-fallback"
+  };
+}
+
 export async function createAdminSession(email: string) {
   const payload = Buffer.from(
-    JSON.stringify({ email, exp: Date.now() + 12 * 60 * 60 * 1000 }),
+    JSON.stringify({
+      email: email.trim().toLowerCase(),
+      exp: Date.now() + 12 * 60 * 60 * 1000
+    }),
     "utf8"
   ).toString("base64url");
+
   const token = payload + "." + sign(payload);
   const jar = await cookies();
+
   jar.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -54,15 +88,24 @@ export async function isAdmin() {
   const jar = await cookies();
   const token = jar.get(COOKIE_NAME)?.value;
   if (!token) return false;
+
   const [payload, signature] = token.split(".");
-  if (!payload || !signature || !safeEqual(sign(payload), signature)) return false;
+  if (!payload || !signature) return false;
+
   try {
+    if (!safeEqual(sign(payload), signature)) return false;
+
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
       email: string;
       exp: number;
     };
-    return data.email === process.env.ADMIN_EMAIL && data.exp > Date.now();
-  } catch {
+
+    return (
+      data.email === (process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? "") &&
+      data.exp > Date.now()
+    );
+  } catch (error) {
+    console.error("[auth] session validation failed", error);
     return false;
   }
 }

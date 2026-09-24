@@ -127,11 +127,22 @@ export const DEFAULT_TEMPLATE_CONFIG: TemplateConfig = {
 };
 
 export function formatDateId(value: string | Date) {
-  const date = typeof value === "string" ? new Date(value + (value.length <= 10 ? "T00:00:00" : "")) : value;
+  const date =
+    value instanceof Date
+      ? value
+      : /^\d{4}-\d{2}-\d{2}$/.test(value)
+        ? new Date(value + "T00:00:00+07:00")
+        : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return typeof value === "string" && value ? value : "—";
+  }
+
   return new Intl.DateTimeFormat("id-ID", {
     day: "2-digit",
     month: "long",
-    year: "numeric"
+    year: "numeric",
+    timeZone: "Asia/Jakarta"
   }).format(date);
 }
 
