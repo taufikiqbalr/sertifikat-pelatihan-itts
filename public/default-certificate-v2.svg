@@ -51,8 +51,8 @@
 
   <!-- lower verification / signature band -->
   <rect x="76" y="617" width="971" height="113" rx="18" fill="url(#softBand)" stroke="#E4ECEE"/>
-  <text x="196" y="640" text-anchor="middle" fill="#6E7F85" font-family="Arial, sans-serif" font-size="9" font-weight="700" letter-spacing="1.5">VERIFIKASI DIGITAL</text>
-  <text x="196" y="718" text-anchor="middle" fill="#829197" font-family="Arial, sans-serif" font-size="8">Pindai QR untuk memeriksa keaslian</text>
+  <text x="274" y="662" text-anchor="start" fill="#6E7F85" font-family="Arial, sans-serif" font-size="9" font-weight="700" letter-spacing="1.5">VERIFIKASI DIGITAL</text>
+  <text x="274" y="682" text-anchor="start" fill="#829197" font-family="Arial, sans-serif" font-size="8">Pindai QR untuk memeriksa keaslian sertifikat</text>
 
   <text x="808" y="640" text-anchor="middle" fill="#6E7F85" font-family="Arial, sans-serif" font-size="9" font-weight="700" letter-spacing="1.5">PENANDATANGAN</text>
   <line x1="686" y1="708" x2="930" y2="708" stroke="#AEBCC1" stroke-width="1.2"/>
