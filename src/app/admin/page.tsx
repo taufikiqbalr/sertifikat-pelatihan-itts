@@ -4,10 +4,10 @@ import {
   databaseErrorMessage,
   getDashboardStats,
   hasDatabaseConfig,
-  listEvents
+  listEventsWithStats
 } from "@/lib/db";
-import { formatDateId, type EventRecord } from "@/lib/types";
 import { logoutAction } from "./actions";
+import EventCatalog, { type EventSummary } from "./event-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +17,11 @@ export default async function AdminPage() {
   const configured = hasDatabaseConfig();
   let databaseError: string | null = null;
   let stats = { events: 0, certificates: 0, valid: 0, revoked: 0 };
-  let events: EventRecord[] = [];
+  let events: EventSummary[] = [];
 
   if (configured) {
     try {
-      [stats, events] = await Promise.all([getDashboardStats(), listEvents()]);
+      [stats, events] = await Promise.all([getDashboardStats(), listEventsWithStats()]);
     } catch (error) {
       console.error("[admin] dashboard database load failed", error);
       databaseError = databaseErrorMessage(error);
@@ -30,15 +30,18 @@ export default async function AdminPage() {
 
   return (
     <>
-      <header className="topbar">
+      <header className="topbar admin-topbar">
         <div className="container topbar-inner">
           <Link className="brand" href="/admin">
             <span className="brand-mark">SI</span>
-            <span>Sertifikat ITTS</span>
+            <span>
+              Sertifikat ITTS
+              <small>Certificate Management</small>
+            </span>
           </Link>
           <nav className="nav">
             <Link className="btn btn-primary btn-small" href="/admin/events/new">
-              + Kegiatan
+              + Buat Kegiatan
             </Link>
             <form action={logoutAction}>
               <button className="btn btn-secondary btn-small" type="submit">
@@ -49,15 +52,19 @@ export default async function AdminPage() {
         </div>
       </header>
 
-      <main className="container page">
-        <div className="page-header">
+      <main className="container page admin-page">
+        <div className="dashboard-hero">
           <div>
-            <div className="breadcrumb">Admin / Dashboard</div>
-            <h1 className="page-title">Dashboard Sertifikat</h1>
-            <p className="muted">
-              Kelola kegiatan, template, penerbitan, dan status validasi sertifikat.
+            <span className="section-kicker">Certificate Management</span>
+            <h1 className="page-title">Manajemen Sertifikat</h1>
+            <p>
+              Kelola kegiatan, desain template, penerbitan peserta, dan validasi sertifikat
+              dari satu workspace.
             </p>
           </div>
+          <Link className="btn btn-primary" href="/admin/events/new">
+            Buat kegiatan baru
+          </Link>
         </div>
 
         {!configured ? (
@@ -66,10 +73,6 @@ export default async function AdminPage() {
             <br />
             Hubungkan Neon ke project Vercel dan pastikan <code>DATABASE_URL</code>
             tersedia untuk deployment ini, kemudian redeploy.
-            <br />
-            <Link href="/api/health" target="_blank">
-              Cek status konfigurasi →
-            </Link>
           </div>
         ) : null}
 
@@ -78,93 +81,56 @@ export default async function AdminPage() {
             <strong>Dashboard berhasil login, tetapi database belum dapat digunakan.</strong>
             <br />
             {databaseError}
-            <br />
-            <Link href="/api/health" target="_blank">
-              Buka health check →
-            </Link>
           </div>
         ) : null}
 
-        <section className="stats">
-          <div className="stat">
-            <span className="muted small">Kegiatan</span>
+        <section className="stats dashboard-stats">
+          <div className="stat stat-accent">
+            <span>Total kegiatan</span>
             <strong>{stats.events}</strong>
+            <small>Master kegiatan tersimpan</small>
           </div>
           <div className="stat">
-            <span className="muted small">Sertifikat terbit</span>
+            <span>Sertifikat terbit</span>
             <strong>{stats.certificates}</strong>
+            <small>Seluruh kegiatan</small>
           </div>
           <div className="stat">
-            <span className="muted small">Valid</span>
+            <span>Sertifikat valid</span>
             <strong>{stats.valid}</strong>
+            <small>Dapat diverifikasi</small>
           </div>
           <div className="stat">
-            <span className="muted small">Dicabut</span>
+            <span>Dicabut</span>
             <strong>{stats.revoked}</strong>
+            <small>Status revoked</small>
           </div>
         </section>
 
-        <section className="card">
-          <div className="card-header">
+        <section className="dashboard-section">
+          <div className="section-heading-row">
             <div>
-              <h2 style={{ marginBottom: 5 }}>Kegiatan</h2>
-              <span className="muted small">
-                Satu kegiatan memiliki satu master template sertifikat.
-              </span>
+              <span className="section-kicker">Kegiatan</span>
+              <h2>Daftar kegiatan</h2>
+              <p>Cari, filter, dan masuk ke workspace sertifikat tiap kegiatan.</p>
             </div>
-            <Link className="btn btn-primary" href="/admin/events/new">
-              Buat Kegiatan
-            </Link>
+            <span className="section-count">{events.length} kegiatan</span>
           </div>
 
           {events.length ? (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Kegiatan</th>
-                    <th>Tanggal</th>
-                    <th>Penyelenggara</th>
-                    <th>Status</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {events.map((event) => (
-                    <tr key={event.id}>
-                      <td>
-                        <strong>{event.title}</strong>
-                        <div className="muted small">{event.certificate_prefix}</div>
-                      </td>
-                      <td>{formatDateId(event.event_date)}</td>
-                      <td>{event.organizer}</td>
-                      <td>
-                        <span
-                          className={
-                            "badge " +
-                            (event.status === "active" ? "badge-valid" : "badge-draft")
-                          }
-                        >
-                          {event.status}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <Link
-                          className="btn btn-secondary btn-small"
-                          href={"/admin/events/" + event.id}
-                        >
-                          Kelola
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <EventCatalog events={events} />
           ) : (
-            <p className="muted">
-              Belum ada kegiatan. Buat kegiatan pertama untuk mulai menerbitkan sertifikat.
-            </p>
+            <div className="empty-state empty-state-large">
+              <div className="empty-state-icon">+</div>
+              <h3>Belum ada kegiatan</h3>
+              <p>
+                Buat kegiatan pertama, pilih template sertifikat, lalu terbitkan sertifikat
+                peserta.
+              </p>
+              <Link className="btn btn-primary" href="/admin/events/new">
+                Buat kegiatan pertama
+              </Link>
+            </div>
           )}
         </section>
       </main>

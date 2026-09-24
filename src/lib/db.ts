@@ -121,7 +121,6 @@ export async function ensureSchema() {
   try {
     await schemaReady;
   } catch (error) {
-    // Serverless instance dapat hidup cukup lama. Jangan cache promise gagal selamanya.
     schemaReady = null;
     console.error("[db] schema initialization failed", error);
     throw error;
@@ -152,6 +151,30 @@ export async function listEvents() {
     "SELECT * FROM events ORDER BY event_date DESC, created_at DESC"
   );
   return rows.map((row) => normalizeEvent(row as Record<string, unknown>));
+}
+
+export async function listEventsWithStats() {
+  await ensureSchema();
+  const rows = await db().query(
+    "SELECT e.*, " +
+      "COUNT(c.id)::int AS certificate_count, " +
+      "COUNT(c.id) FILTER (WHERE c.status = 'valid')::int AS valid_count, " +
+      "COUNT(c.id) FILTER (WHERE c.status = 'revoked')::int AS revoked_count " +
+      "FROM events e " +
+      "LEFT JOIN certificates c ON c.event_id = e.id " +
+      "GROUP BY e.id " +
+      "ORDER BY e.event_date DESC, e.created_at DESC"
+  );
+
+  return rows.map((row) => {
+    const raw = row as Record<string, unknown>;
+    return {
+      ...normalizeEvent(raw),
+      certificate_count: Number(raw.certificate_count ?? 0),
+      valid_count: Number(raw.valid_count ?? 0),
+      revoked_count: Number(raw.revoked_count ?? 0)
+    };
+  });
 }
 
 export async function getEvent(id: string) {
