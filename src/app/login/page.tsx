@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import LoginForm from "./login-form";
+import BrandLogo from "../brand-logo";
 import LoginIcon from "./login-icon";
 import styles from "./login.module.css";
 
@@ -19,7 +20,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className={styles.shell}>
         <header className={styles.header}>
           <Link href="/" className={styles.brand} aria-label="Sertifikat ITTS — beranda">
-            <span className={styles.brandMark}><LoginIcon name="award" /></span>
+            <BrandLogo className={styles.brandMark} />
             <span><strong>Sertifikat <span>ITTS</span></strong><small>Sistem sertifikat digital</small></span>
           </Link>
           <Link href="/" className={styles.backLink}><LoginIcon name="back" /><span>Kembali ke beranda</span></Link>

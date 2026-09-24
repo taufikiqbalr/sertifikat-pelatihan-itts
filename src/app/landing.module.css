@@ -1042,3 +1042,21 @@
   .ctaSection,
   .footer { display: none !important; }
 }
+
+
+/* Brand mark */
+.brandMark {
+  width: 42px;
+  height: 42px;
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+  filter: drop-shadow(0 8px 14px rgba(8, 116, 123, .15));
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+.footerBrand .brandMark {
+  width: 38px;
+  height: 38px;
+}

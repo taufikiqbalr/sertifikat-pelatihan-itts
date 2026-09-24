@@ -1939,3 +1939,23 @@ html[data-theme] .color-control code,
 html[data-theme] .placeholder-list code {
   color: var(--muted);
 }
+
+
+/* ===== Sertifikat ITTS brand identity ===== */
+.brand-logo-header {
+  width: 40px;
+  height: 40px;
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+  filter: drop-shadow(0 7px 12px rgba(8, 116, 123, .14));
+}
+.brand:hover .brand-logo-header {
+  transform: translateY(-1px) rotate(-1deg);
+}
+.brand-logo-header {
+  transition: transform .16s ease, filter .16s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-logo-header { transition: none; }
+}

@@ -260,3 +260,23 @@
 .errorAlert:focus-visible {
   outline-color: var(--primary);
 }
+
+
+/* Branded certificate verification mark */
+.brandMark {
+  display: block;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  overflow: visible;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  filter: drop-shadow(0 8px 14px rgba(8, 116, 123, .14));
+}
+@media (max-width: 480px) {
+  .brandMark {
+    width: 40px;
+    height: 40px;
+  }
+}

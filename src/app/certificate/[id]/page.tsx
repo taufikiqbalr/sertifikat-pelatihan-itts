@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BrandLogo from "../../brand-logo";
 import { notFound } from "next/navigation";
 import {
   getCertificate,
@@ -31,7 +32,7 @@ export default async function CertificatePage({
       <header className="topbar">
         <div className="container topbar-inner">
           <Link className="brand" href="/">
-            <span className="brand-mark">SI</span>
+            <BrandLogo className="brand-logo-header" />
             <span>Sertifikat ITTS</span>
           </Link>
           <Link

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BrandLogo from "../brand-logo";
 import { logoutAction } from "./actions";
 
 export default function AdminHeader({
@@ -10,7 +11,7 @@ export default function AdminHeader({
     <header className="topbar admin-topbar">
       <div className="container topbar-inner">
         <Link className="brand" href="/admin">
-          <span className="brand-mark">SI</span>
+          <BrandLogo className="brand-logo-header" />
           <span>
             Sertifikat ITTS
             <small>Certificate Management</small>

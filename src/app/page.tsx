@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import BrandLogo from "./brand-logo";
 import styles from "./landing.module.css";
 
 export const metadata: Metadata = {
@@ -121,7 +122,7 @@ export default function HomePage() {
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <Link className={styles.brand} href="/" aria-label="Sertifikat ITTS">
-            <span className={styles.brandMark}>SI</span>
+            <BrandLogo className={styles.brandMark} />
             <span className={styles.brandCopy}>
               <strong>Sertifikat ITTS</strong>
               <small>Digital Certificate Platform</small>
@@ -390,7 +391,7 @@ export default function HomePage() {
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
           <div className={styles.footerBrand}>
-            <span className={styles.brandMark}>SI</span>
+            <BrandLogo className={styles.brandMark} />
             <span>
               <strong>Sertifikat ITTS</strong>
               <small>Institut Teknologi Tangerang Selatan</small>
