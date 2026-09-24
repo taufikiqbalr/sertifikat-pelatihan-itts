@@ -1,0 +1,55 @@
+name: Landing UI checks
+
+on:
+  push:
+    paths:
+      - 'src/app/page.tsx'
+      - 'src/app/landing.module.css'
+      - 'src/app/theme-switcher.tsx'
+      - 'src/app/theme-switcher.module.css'
+      - 'src/app/globals.css'
+      - 'src/app/layout.tsx'
+      - 'scripts/check-landing-ui.mjs'
+      - '.github/workflows/landing-ui.yml'
+  pull_request:
+    paths:
+      - 'src/app/page.tsx'
+      - 'src/app/landing.module.css'
+      - 'src/app/theme-switcher.tsx'
+      - 'src/app/theme-switcher.module.css'
+      - 'src/app/globals.css'
+      - 'src/app/layout.tsx'
+      - 'scripts/check-landing-ui.mjs'
+      - '.github/workflows/landing-ui.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  landing-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install application dependencies
+        run: npm install
+      - name: Build application
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+      - name: Install browser test tools
+        run: |
+          npm install --no-save --package-lock=false @playwright/test@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test public landing page
+        run: node scripts/check-landing-ui.mjs
+      - name: Save screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: landing-ui-preview
+          path: artifacts/landing-ui/
+          retention-days: 14
