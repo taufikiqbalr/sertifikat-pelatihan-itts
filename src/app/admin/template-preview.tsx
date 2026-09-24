@@ -1,5 +1,6 @@
 import {
   renderText,
+  resolveTemplateFontSize,
   type CertificateTemplateRecord,
   type TemplateConfig
 } from "@/lib/types";
@@ -17,17 +18,21 @@ export default function TemplatePreview({
   template,
   config,
   imageUrl,
-  className = ""
+  className = "",
+  values
 }: {
   template?: CertificateTemplateRecord;
   config?: TemplateConfig;
   imageUrl?: string | null;
   className?: string;
+  values?: Record<string, string>;
 }) {
   const resolvedConfig = config ?? template?.template_config;
   const resolvedImage = imageUrl === undefined ? template?.template_image_url : imageUrl;
 
   if (!resolvedConfig) return null;
+
+  const resolvedValues = { ...sample, ...values };
 
   return (
     <div className={"template-thumbnail " + className}>
@@ -38,27 +43,36 @@ export default function TemplatePreview({
       />
       {resolvedConfig.fields
         .filter((field) => !field.hidden)
-        .map((field) => (
-          <div
-            key={field.id}
-            style={{
-              position: "absolute",
-              left: field.x + "%",
-              top: field.y + "%",
-              width: field.width + "%",
-              transform: "translate(-50%, -50%)",
-              fontSize: Math.max(3.2, field.fontSize * 0.19) + "px",
-              fontWeight: field.fontWeight,
-              color: field.color,
-              textAlign: field.align,
-              fontStyle: field.italic ? "italic" : "normal",
-              lineHeight: 1.05,
-              overflow: "hidden"
-            }}
-          >
-            {renderText(field.template, sample)}
-          </div>
-        ))}
+        .map((field) => {
+          const rendered = renderText(field.template, resolvedValues);
+          const fittedSize = resolveTemplateFontSize(field, rendered);
+
+          return (
+            <div
+              key={field.id}
+              style={{
+                position: "absolute",
+                left: field.x + "%",
+                top: field.y + "%",
+                width: field.width + "%",
+                transform: "translate(-50%, -50%)",
+                fontSize: Math.max(3.2, fittedSize * 0.19) + "px",
+                fontWeight: field.fontWeight,
+                color: field.color,
+                textAlign: field.align,
+                fontStyle: field.italic ? "italic" : "normal",
+                lineHeight: field.lineHeight ?? 1.05,
+                letterSpacing: field.letterSpacing
+                  ? field.letterSpacing * 0.19 + "px"
+                  : undefined,
+                overflow: "hidden",
+                overflowWrap: "break-word"
+              }}
+            >
+              {rendered}
+            </div>
+          );
+        })}
       {!resolvedConfig.qr.hidden ? (
         <div
           className="thumbnail-qr"

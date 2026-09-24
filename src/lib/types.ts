@@ -12,6 +12,15 @@ export type TemplateField = {
   align: TextAlign;
   italic?: boolean;
   hidden?: boolean;
+  /**
+   * Optional rendering hints used to keep dynamic text inside a safe zone.
+   * They do not change the stored text; only the rendered font size/leading.
+   */
+  autoFit?: boolean;
+  minFontSize?: number;
+  maxLines?: number;
+  lineHeight?: number;
+  letterSpacing?: number;
 };
 
 export type TemplateConfig = {
@@ -94,77 +103,132 @@ export type TemplateUsageRecord = {
   certificate_count: number;
 };
 
+export const DEFAULT_TEMPLATE_IMAGE_URL = "/default-certificate-v2.svg";
+export const SYSTEM_DEFAULT_TEMPLATE_ID = "template-default-itts";
+export const SYSTEM_DEFAULT_TEMPLATE_REVISION = 2;
+export const SYSTEM_DEFAULT_TEMPLATE_REVISION_NOTE =
+  "SYSTEM_DEFAULT_PRESET_REVISION_2";
+
 export const DEFAULT_TEMPLATE_CONFIG: TemplateConfig = {
   fields: [
     {
-      id: "event-title",
-      template: "{{event_title}}",
+      id: "certificate-number",
+      template: "{{certificate_number}}",
       x: 50,
-      y: 31,
-      width: 78,
-      fontSize: 28,
-      fontWeight: 700,
-      color: "#0f3d4a",
-      align: "center"
+      y: 27,
+      width: 74,
+      fontSize: 22,
+      fontWeight: 800,
+      color: "#0b5e66",
+      align: "center",
+      autoFit: true,
+      minFontSize: 15,
+      maxLines: 1,
+      lineHeight: 1.05,
+      letterSpacing: 0.15
     },
     {
       id: "participant-name",
       template: "{{participant_name}}",
       x: 50,
-      y: 47,
+      y: 45,
       width: 78,
-      fontSize: 46,
+      fontSize: 44,
       fontWeight: 700,
       color: "#132238",
-      align: "center"
+      align: "center",
+      autoFit: true,
+      minFontSize: 30,
+      maxLines: 1,
+      lineHeight: 1.05
     },
     {
-      id: "certificate-number",
-      template: "Nomor: {{certificate_number}}",
+      id: "event-title",
+      template: "{{event_title}}",
       x: 50,
-      y: 57,
-      width: 70,
-      fontSize: 16,
-      fontWeight: 500,
-      color: "#4b5563",
-      align: "center"
+      y: 59.5,
+      width: 76,
+      fontSize: 24,
+      fontWeight: 700,
+      color: "#0f3d4a",
+      align: "center",
+      autoFit: true,
+      minFontSize: 16,
+      maxLines: 2,
+      lineHeight: 1.12
     },
     {
       id: "event-date",
-      template: "Diselenggarakan pada {{event_date}}",
+      template: "{{event_date}}",
       x: 50,
-      y: 67,
-      width: 70,
-      fontSize: 17,
-      fontWeight: 500,
+      y: 69.5,
+      width: 60,
+      fontSize: 15,
+      fontWeight: 600,
       color: "#374151",
-      align: "center"
+      align: "center",
+      autoFit: true,
+      minFontSize: 12,
+      maxLines: 1,
+      lineHeight: 1.1
     },
     {
       id: "organizer",
-      template: "Penyelenggara: {{organizer}}",
+      template: "{{organizer}}",
       x: 50,
-      y: 73,
-      width: 70,
-      fontSize: 16,
+      y: 75,
+      width: 72,
+      fontSize: 14,
       fontWeight: 500,
-      color: "#374151",
-      align: "center"
+      color: "#475569",
+      align: "center",
+      autoFit: true,
+      minFontSize: 11,
+      maxLines: 2,
+      lineHeight: 1.12
     },
     {
       id: "signatory",
       template: "{{signatory}}",
-      x: 50,
-      y: 89,
-      width: 36,
-      fontSize: 16,
+      x: 72,
+      y: 85.5,
+      width: 30,
+      fontSize: 15,
       fontWeight: 700,
       color: "#1f2937",
-      align: "center"
+      align: "center",
+      autoFit: true,
+      minFontSize: 12,
+      maxLines: 2,
+      lineHeight: 1.1
     }
   ],
-  qr: { x: 88, y: 82, size: 10 }
+  qr: { x: 17.5, y: 85.5, size: 10 }
 };
+
+export function resolveTemplateFontSize(field: TemplateField, renderedText: string) {
+  if (!field.autoFit || !renderedText.trim()) return field.fontSize;
+
+  // The certificate canvas is authored at 1123 px wide. This deterministic
+  // approximation keeps long dynamic values in their allocated safe zone
+  // without relying on browser measurement before PNG/PDF export.
+  const fieldWidthPx = 1123 * (Math.max(8, field.width) / 100);
+  const lines = Math.max(1, field.maxLines ?? 1);
+  const normalizedLength = renderedText.trim().replace(/\s+/g, " ").length;
+  const averageGlyphWidth = 0.54;
+  const estimatedFit =
+    (fieldWidthPx * lines) / Math.max(1, normalizedLength * averageGlyphWidth);
+
+  const minFontSize = Math.min(
+    field.fontSize,
+    field.minFontSize ?? Math.max(10, Math.round(field.fontSize * 0.68))
+  );
+
+  return Math.max(
+    minFontSize,
+    Math.min(field.fontSize, Math.floor(estimatedFit * 10) / 10)
+  );
+}
 
 export function formatDateId(value: string | Date) {
   const date =

@@ -4,7 +4,9 @@ import { useMemo, useState, type PointerEvent } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import {
   DEFAULT_TEMPLATE_CONFIG,
+  DEFAULT_TEMPLATE_IMAGE_URL,
   renderText,
+  resolveTemplateFontSize,
   type CertificateTemplateRecord,
   type TemplateConfig,
   type TemplateField
@@ -40,7 +42,9 @@ export default function TemplateEditor({
   const [config, setConfig] = useState<TemplateConfig>(
     template?.template_config ?? cloneDefault()
   );
-  const [imageUrl, setImageUrl] = useState(template?.template_image_url ?? "");
+  const [imageUrl, setImageUrl] = useState(
+    template ? template.template_image_url ?? "" : DEFAULT_TEMPLATE_IMAGE_URL
+  );
   const [uploading, setUploading] = useState(false);
   const [selected, setSelected] = useState(
     template?.template_config.fields[0]?.id ?? DEFAULT_TEMPLATE_CONFIG.fields[0].id
@@ -270,9 +274,13 @@ export default function TemplateEditor({
                 <span className="section-kicker">Background</span>
                 <h3>Gambar sertifikat</h3>
               </div>
-              {imageUrl ? (
-                <button className="text-button" type="button" onClick={() => setImageUrl("")}>
-                  Reset
+              {imageUrl !== DEFAULT_TEMPLATE_IMAGE_URL ? (
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => setImageUrl(DEFAULT_TEMPLATE_IMAGE_URL)}
+                >
+                  Gunakan default
                 </button>
               ) : null}
             </div>
@@ -316,7 +324,11 @@ export default function TemplateEditor({
 
               {config.fields
                 .filter((field) => !field.hidden)
-                .map((field) => (
+                .map((field) => {
+                  const rendered = renderText(field.template, previewValues);
+                  const fittedSize = resolveTemplateFontSize(field, rendered);
+
+                  return (
                   <div
                     key={field.id}
                     className={"cert-field " + (selected === field.id ? "selected" : "")}
@@ -332,19 +344,25 @@ export default function TemplateEditor({
                       width: field.width + "%",
                       fontSize:
                         "clamp(8px, " +
-                        field.fontSize / 11.23 +
+                        fittedSize / 11.23 +
                         "vw, " +
-                        field.fontSize +
+                        fittedSize +
                         "px)",
                       fontWeight: field.fontWeight,
                       color: field.color,
                       textAlign: field.align,
-                      fontStyle: field.italic ? "italic" : "normal"
+                      fontStyle: field.italic ? "italic" : "normal",
+                      lineHeight: field.lineHeight ?? 1.12,
+                      letterSpacing: field.letterSpacing
+                        ? field.letterSpacing + "px"
+                        : undefined,
+                      overflowWrap: "break-word"
                     }}
                   >
-                    {renderText(field.template, previewValues)}
+                    {rendered}
                   </div>
-                ))}
+                  );
+                })}
 
               {!config.qr.hidden ? (
                 <div
@@ -674,6 +692,7 @@ export default function TemplateEditor({
             type="button"
             onClick={() => {
               setConfig(cloneDefault());
+              setImageUrl(DEFAULT_TEMPLATE_IMAGE_URL);
               setSelected(DEFAULT_TEMPLATE_CONFIG.fields[0].id);
             }}
           >

@@ -1,6 +1,10 @@
 import { neon } from "@neondatabase/serverless";
 import {
   DEFAULT_TEMPLATE_CONFIG,
+  DEFAULT_TEMPLATE_IMAGE_URL,
+  SYSTEM_DEFAULT_TEMPLATE_ID,
+  SYSTEM_DEFAULT_TEMPLATE_REVISION,
+  SYSTEM_DEFAULT_TEMPLATE_REVISION_NOTE,
   type CertificateRecord,
   type CertificateTemplateRecord,
   type EventRecord,
@@ -83,8 +87,8 @@ async function seedDefaultTemplate(query: ReturnType<typeof db>) {
     [
       "template-default-itts",
       "Template Default ITTS",
-      "Template landscape standar ITTS untuk webinar, pelatihan, dan kegiatan umum.",
-      null,
+      "Template landscape siap pakai ITTS dengan hierarki nomor sertifikat, nama peserta, kegiatan, metadata, QR, dan penandatangan yang sudah dioptimalkan.",
+      DEFAULT_TEMPLATE_IMAGE_URL,
       JSON.stringify(DEFAULT_TEMPLATE_CONFIG)
     ]
   );
@@ -156,7 +160,10 @@ async function migrateTemplateVersions(query: ReturnType<typeof db>) {
           templateId,
           row.template_image_url ?? null,
           JSON.stringify(row.template_config ?? DEFAULT_TEMPLATE_CONFIG),
-          "Versi awal hasil migrasi"
+          templateId === SYSTEM_DEFAULT_TEMPLATE_ID &&
+          row.template_image_url === DEFAULT_TEMPLATE_IMAGE_URL
+            ? SYSTEM_DEFAULT_TEMPLATE_REVISION_NOTE
+            : "Versi awal hasil migrasi"
         ]
       );
 
@@ -182,6 +189,125 @@ async function migrateTemplateVersions(query: ReturnType<typeof db>) {
       "template_version_id=t.current_version_id, template_version_number=t.current_version " +
       "FROM events e JOIN certificate_templates t ON t.id=e.template_id " +
       "WHERE c.event_id=e.id AND c.template_version_id IS NULL"
+  );
+}
+
+async function upgradeSystemDefaultTemplate(query: ReturnType<typeof db>) {
+  const existingRevision = (await query.query(
+    "SELECT id, version_number FROM certificate_template_versions " +
+      "WHERE template_id=$1 AND change_note=$2 ORDER BY version_number DESC LIMIT 1",
+    [SYSTEM_DEFAULT_TEMPLATE_ID, SYSTEM_DEFAULT_TEMPLATE_REVISION_NOTE]
+  )) as Record<string, unknown>[];
+
+  if (existingRevision.length) return;
+
+  const templateRows = (await query.query(
+    "SELECT id FROM certificate_templates WHERE id=$1 LIMIT 1",
+    [SYSTEM_DEFAULT_TEMPLATE_ID]
+  )) as Record<string, unknown>[];
+
+  if (!templateRows.length) return;
+
+  const maxRows = (await query.query(
+    "SELECT COALESCE(MAX(version_number),0)::int AS max_version " +
+      "FROM certificate_template_versions WHERE template_id=$1",
+    [SYSTEM_DEFAULT_TEMPLATE_ID]
+  )) as Record<string, unknown>[];
+
+  let nextVersion = Number(maxRows[0]?.max_version ?? 0) + 1;
+  let versionId =
+    SYSTEM_DEFAULT_TEMPLATE_ID + "-system-r" + SYSTEM_DEFAULT_TEMPLATE_REVISION;
+
+  await query.query(
+    "INSERT INTO certificate_template_versions " +
+      "(id, template_id, version_number, template_image_url, template_config, change_note) " +
+      "VALUES ($1,$2,$3,$4,$5::jsonb,$6) ON CONFLICT DO NOTHING",
+    [
+      versionId,
+      SYSTEM_DEFAULT_TEMPLATE_ID,
+      nextVersion,
+      DEFAULT_TEMPLATE_IMAGE_URL,
+      JSON.stringify(DEFAULT_TEMPLATE_CONFIG),
+      SYSTEM_DEFAULT_TEMPLATE_REVISION_NOTE
+    ]
+  );
+
+  let revisionRows = (await query.query(
+    "SELECT id, version_number FROM certificate_template_versions " +
+      "WHERE template_id=$1 AND change_note=$2 ORDER BY version_number DESC LIMIT 1",
+    [SYSTEM_DEFAULT_TEMPLATE_ID, SYSTEM_DEFAULT_TEMPLATE_REVISION_NOTE]
+  )) as Record<string, unknown>[];
+
+  // A simultaneous template edit can consume the same version number. Retry once
+  // with the latest number while retaining the immutable history.
+  if (!revisionRows.length) {
+    const retryMaxRows = (await query.query(
+      "SELECT COALESCE(MAX(version_number),0)::int AS max_version " +
+        "FROM certificate_template_versions WHERE template_id=$1",
+      [SYSTEM_DEFAULT_TEMPLATE_ID]
+    )) as Record<string, unknown>[];
+
+    nextVersion = Number(retryMaxRows[0]?.max_version ?? 0) + 1;
+    versionId =
+      SYSTEM_DEFAULT_TEMPLATE_ID +
+      "-system-r" +
+      SYSTEM_DEFAULT_TEMPLATE_REVISION +
+      "-v" +
+      nextVersion;
+
+    await query.query(
+      "INSERT INTO certificate_template_versions " +
+        "(id, template_id, version_number, template_image_url, template_config, change_note) " +
+        "VALUES ($1,$2,$3,$4,$5::jsonb,$6) ON CONFLICT DO NOTHING",
+      [
+        versionId,
+        SYSTEM_DEFAULT_TEMPLATE_ID,
+        nextVersion,
+        DEFAULT_TEMPLATE_IMAGE_URL,
+        JSON.stringify(DEFAULT_TEMPLATE_CONFIG),
+        SYSTEM_DEFAULT_TEMPLATE_REVISION_NOTE
+      ]
+    );
+
+    revisionRows = (await query.query(
+      "SELECT id, version_number FROM certificate_template_versions " +
+        "WHERE template_id=$1 AND change_note=$2 ORDER BY version_number DESC LIMIT 1",
+      [SYSTEM_DEFAULT_TEMPLATE_ID, SYSTEM_DEFAULT_TEMPLATE_REVISION_NOTE]
+    )) as Record<string, unknown>[];
+  }
+
+  if (!revisionRows.length) return;
+
+  const actualVersionId = String(revisionRows[0].id);
+  const actualVersion = Number(revisionRows[0].version_number);
+
+  await query.query(
+    "UPDATE certificate_templates SET " +
+      "name=$1, description=$2, template_image_url=$3, template_config=$4::jsonb, " +
+      "current_version_id=$5, current_version=$6, status='active', updated_at=NOW() " +
+      "WHERE id=$7",
+    [
+      "Template Default ITTS",
+      "Template landscape siap pakai dengan safe-zone, auto-fit teks, nomor sertifikat menonjol, QR verifikasi, dan area penandatangan.",
+      DEFAULT_TEMPLATE_IMAGE_URL,
+      JSON.stringify(DEFAULT_TEMPLATE_CONFIG),
+      actualVersionId,
+      actualVersion,
+      SYSTEM_DEFAULT_TEMPLATE_ID
+    ]
+  );
+
+  // Events resolve the live template through template_id, but keep the fallback
+  // snapshot synchronized for compatibility. Already-issued certificates remain
+  // locked to their historical template_version_id.
+  await query.query(
+    "UPDATE events SET template_image_url=$1, template_config=$2::jsonb, updated_at=NOW() " +
+      "WHERE template_id=$3",
+    [
+      DEFAULT_TEMPLATE_IMAGE_URL,
+      JSON.stringify(DEFAULT_TEMPLATE_CONFIG),
+      SYSTEM_DEFAULT_TEMPLATE_ID
+    ]
   );
 }
 
@@ -290,6 +416,7 @@ export async function ensureSchema() {
       await seedDefaultTemplate(query);
       await migrateLegacyTemplates(query);
       await migrateTemplateVersions(query);
+      await upgradeSystemDefaultTemplate(query);
       await query.query(
         "UPDATE certificates c SET issuance_snapshot=jsonb_build_object(" +
           "'event_title', e.title, " +

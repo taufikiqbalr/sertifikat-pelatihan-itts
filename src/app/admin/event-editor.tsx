@@ -144,8 +144,11 @@ export default function EventEditor({
                 onChange={(e) =>
                   setMeta((current) => ({ ...current, signatory: e.target.value }))
                 }
-                placeholder="Nama atau jabatan"
+                placeholder="Contoh: Ketua Pelaksana / Dr. Nama Penandatangan"
               />
+              <span className="help">
+                Disarankan diisi agar area penandatangan pada template default tidak kosong.
+              </span>
             </div>
 
             <div className="form-group">
@@ -211,6 +214,9 @@ export default function EventEditor({
                         <strong>{template.name}</strong>
                         {template.is_default ? (
                           <span className="badge badge-default">Default</span>
+                        ) : null}
+                        {template.id === "template-default-itts" ? (
+                          <span className="badge badge-ready">Siap pakai</span>
                         ) : null}
                       </span>
                       <small>

@@ -7,6 +7,7 @@ import { jsPDF } from "jspdf";
 import {
   formatDateId,
   renderText,
+  resolveTemplateFontSize,
   type CertificateRecord,
   type EventRecord,
   type TemplateVersionRecord
@@ -111,7 +112,11 @@ export default function CertificateView({
 
         {config.fields
           .filter((field) => !field.hidden)
-          .map((field) => (
+          .map((field) => {
+            const rendered = renderText(field.template, values);
+            const fittedSize = resolveTemplateFontSize(field, rendered);
+
+            return (
             <div
               key={field.id}
               style={{
@@ -120,18 +125,23 @@ export default function CertificateView({
                 top: field.y + "%",
                 width: field.width + "%",
                 transform: "translate(-50%, -50%)",
-                fontSize: field.fontSize + "px",
+                fontSize: fittedSize + "px",
                 fontWeight: field.fontWeight,
                 color: field.color,
                 textAlign: field.align,
                 fontStyle: field.italic ? "italic" : "normal",
-                lineHeight: 1.12,
+                lineHeight: field.lineHeight ?? 1.12,
+                letterSpacing: field.letterSpacing
+                  ? field.letterSpacing + "px"
+                  : undefined,
+                overflowWrap: "break-word",
                 padding: "3px 5px"
               }}
             >
-              {renderText(field.template, values)}
+              {rendered}
             </div>
-          ))}
+            );
+          })}
 
         {!config.qr.hidden && verifyUrl.startsWith("http") ? (
           <div
