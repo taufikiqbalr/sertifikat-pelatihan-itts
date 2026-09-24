@@ -131,10 +131,9 @@ try {
   });
 
   await check("Admin navigation targets the existing login route", async () => {
-    await expect(page.getByRole("link", { name: "Admin", exact: true })).toHaveAttribute(
-      "href",
-      "/login"
-    );
+    await expect(
+      page.getByRole("banner").getByRole("link", { name: "Admin", exact: true })
+    ).toHaveAttribute("href", "/login");
     await expect(page.getByRole("link", { name: "Masuk ke Dashboard" })).toHaveAttribute(
       "href",
       "/login"
