@@ -73,7 +73,7 @@ export async function checkDatabaseConnection() {
   }
 }
 
-async function seedDefaultTemplate(query: ReturnType<typeof neon>) {
+async function seedDefaultTemplate(query: ReturnType<typeof db>) {
   await query.query(
     "INSERT INTO certificate_templates " +
       "(id, name, description, template_image_url, template_config, is_default, status) " +
@@ -89,11 +89,11 @@ async function seedDefaultTemplate(query: ReturnType<typeof neon>) {
   );
 }
 
-async function migrateLegacyTemplates(query: ReturnType<typeof neon>) {
-  const events = await query.query(
+async function migrateLegacyTemplates(query: ReturnType<typeof db>) {
+  const events = (await query.query(
     "SELECT id, title, template_image_url, template_config " +
       "FROM events WHERE template_id IS NULL ORDER BY created_at ASC"
-  );
+  )) as Record<string, unknown>[];
 
   for (const row of events) {
     const eventId = String(row.id);
