@@ -11,14 +11,18 @@ const origin = `http://127.0.0.1:${port}`;
 const results = [];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const server = spawn("npm", ["run", "start", "--", "-p", String(port)], {
-  env: {
-    ...process.env,
-    NODE_ENV: "production",
-    NEXT_PUBLIC_APP_URL: origin
-  },
-  stdio: ["ignore", "pipe", "pipe"]
-});
+const server = spawn(
+  process.execPath,
+  ["node_modules/next/dist/bin/next", "start", "-p", String(port)],
+  {
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      NEXT_PUBLIC_APP_URL: origin
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  }
+);
 
 server.stdout.on("data", chunk => process.stdout.write(chunk));
 server.stderr.on("data", chunk => process.stderr.write(chunk));
