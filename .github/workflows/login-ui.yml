@@ -1,0 +1,49 @@
+name: Login UI checks
+
+on:
+  push:
+    paths:
+      - 'src/app/login/**'
+      - 'src/app/globals.css'
+      - 'src/lib/auth.ts'
+      - 'scripts/check-login-ui.mjs'
+      - '.github/workflows/login-ui.yml'
+  pull_request:
+    paths:
+      - 'src/app/login/**'
+      - 'src/app/globals.css'
+      - 'src/lib/auth.ts'
+      - 'scripts/check-login-ui.mjs'
+      - '.github/workflows/login-ui.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  login-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install application dependencies
+        run: npm install
+      - name: Build application
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+      - name: Install browser test tools
+        run: |
+          npm install --no-save --package-lock=false @playwright/test@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test login with isolated credentials
+        run: node scripts/check-login-ui.mjs
+      - name: Save screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: login-ui-preview
+          path: artifacts/login-ui/
+          retention-days: 14
