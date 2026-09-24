@@ -99,8 +99,8 @@ try {
     await page.getByRole("button", { name: "Masuk ke dashboard" }).click();
     await expect(page.getByRole("button", { name: "Memeriksa akun..." })).toBeDisabled();
     await expect(page).toHaveURL(/\/login\?error=1$/);
-    await expect(page.getByRole("alert")).toContainText("Email atau password tidak sesuai");
-    await expect(page.getByRole("alert")).toBeFocused();
+    await expect(page.locator("#login-error")).toContainText("Email atau password tidak sesuai");
+    await expect(page.locator("#login-error")).toBeFocused();
     await page.getByLabel("Email admin", { exact: true }).fill("");
     await page.getByLabel("Password", { exact: true }).fill("");
     await page.screenshot({ path: `${output}/login-error.png`, fullPage: true });
@@ -125,7 +125,7 @@ try {
     await plain.getByLabel("Password", { exact: true }).fill("incorrect-test-value");
     await plain.getByRole("button", { name: "Masuk ke dashboard" }).click();
     await expect(plain).toHaveURL(/\/login\?error=1$/);
-    await expect(plain.getByRole("alert")).toBeVisible();
+    await expect(plain.locator("#login-error")).toBeVisible();
     await noJs.close();
   });
   await check("No unhandled browser errors", async () => assert.deepEqual(pageErrors, []));
