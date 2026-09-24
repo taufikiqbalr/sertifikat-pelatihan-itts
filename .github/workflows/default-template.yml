@@ -1,0 +1,59 @@
+name: Default Certificate Template
+
+on:
+  push:
+    paths:
+      - 'public/default-certificate-v2.svg'
+      - 'src/lib/types.ts'
+      - 'src/lib/db.ts'
+      - 'src/app/admin/event-editor.tsx'
+      - 'src/app/admin/template-editor.tsx'
+      - 'src/app/admin/template-preview.tsx'
+      - 'src/app/certificate/**'
+      - 'src/app/globals.css'
+      - 'scripts/check-default-template.mjs'
+      - '.github/workflows/default-template.yml'
+  pull_request:
+    paths:
+      - 'public/default-certificate-v2.svg'
+      - 'src/lib/types.ts'
+      - 'src/lib/db.ts'
+      - 'src/app/admin/event-editor.tsx'
+      - 'src/app/admin/template-editor.tsx'
+      - 'src/app/admin/template-preview.tsx'
+      - 'src/app/certificate/**'
+      - 'src/app/globals.css'
+      - 'scripts/check-default-template.mjs'
+      - '.github/workflows/default-template.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  default-template:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install application dependencies
+        run: npm install
+      - name: Build application
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+      - name: Install browser tools
+        run: |
+          npm install --no-save --package-lock=false @playwright/test@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Validate default certificate safe zones
+        run: node scripts/check-default-template.mjs
+      - name: Save certificate previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: default-certificate-preview
+          path: artifacts/default-template/
+          retention-days: 14
