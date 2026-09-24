@@ -88,7 +88,7 @@ try {
     const trigger = page.locator('summary[aria-label^="Pilih tema"]');
     await expect(trigger).toBeVisible();
     await trigger.click();
-    assert.equal(await page.locator('button[aria-pressed]').count(), 16, "Expected 16 theme choices");
+    assert.equal(await page.locator('details').filter({ has: page.locator('summary[aria-label^="Pilih tema"]') }).locator('button[aria-pressed]').count(), 16, "Expected 16 theme choices");
     await page.getByRole("button", { name: /Midnight/ }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "midnight");
     assert.equal(await page.evaluate(() => localStorage.getItem("itts-system-theme")), "midnight");
